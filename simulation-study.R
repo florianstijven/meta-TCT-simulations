@@ -13,35 +13,45 @@ library(nlme)
 a = Sys.time()
 # Variance-Covariance matrix as reported by Raket (2022, doi: 10.1002/sim.9581) in
 # section 5.1.
-vcov_ref = matrix(c(45.1, 40.0, 45.1, 54.9, 53.6,
-                    40.0, 57.8, 54.4, 66.3, 64.1,
-                    45.1, 54.4, 72.0, 80.0, 77.6,
-                    54.9, 66.3, 80.0, 109.8, 99.3,
-                    53.6, 64.1, 77.6, 99.3, 111.4), nrow = 5, byrow = TRUE)
-# Mean values as reported by Raket (2022): short. The long vector represents and
-# additional scenario where progression goes faster and/or the study duration is
-# longer.
+vcov_ref = matrix(c(45.1, 40.0, 45.1, 54.9, 53.6, 60.8,
+                    40.0, 57.8, 54.4, 66.3, 64.1, 74.7,
+                    45.1, 54.4, 72.0, 80.0, 77.6, 93.1, 
+                    54.9, 66.3, 80.0, 109.8, 99.3, 121.7
+                    53.6, 64.1, 77.6, 99.3, 111.4, 127.8, 
+                    60.8, 74.7, 93.1, 121.7, 127.8, 191.4), nrow = 6, byrow = TRUE)
+# Mean values as reported by Raket (2022): `normal`. The `fast` vector
+# represents an additional scenario where progression goes faster and/or the
+# study duration is longer.
 time_means_list = list(
-  short = c(19.6, 20.5, 20.9, 22.7, 23.8),
-  long = c(18, 19.7, 20.9, 22.7, 24.7)
+  normal = c(19.6, 20.5, 20.9, 22.7, 23.8, 27.4),
+  fast = c(18, 19.7, 20.9, 22.7, 24.7, 29.2)
 )
 
 # In the settings data frame, we define all settings for which we will generate
-# data.
+# data. We consider all possible combinations of trial settings. In total, there
+# are 48 different settings. 
 settings = tidyr::expand_grid(
-  duration = c("short", "long"),
+  progression = c("normal", "fast"),
   gamma_slowing = c(1, 0.75, 0.5),
-  n = c(50, 200, 500, 1000)
+  n = c(50, 200, 500, 1000),
+  time_points = list(
+    c(0, 6, 12, 18, 24),
+    c(0, 6, 12, 18, 24, 36)
+  )
 )
 results = list()
 
-# Simulation settings
+# Number of independent replications for each setting.
 N_trials = 5e3
-# R = 1e3
+# Set the seed for reproducibility.
 set.seed(1)
 
 #-----
-# HELPER FUNCTION
+# We next define a set of helper functions. 
+
+# The analyze_mmrm_new() function fits the MMRM to a given data set using the
+# mmrm::mmrm() function. The model fit object returned by the latter function is
+# returned by this function as well.
 analyze_mmrm_new = function(data_trial, type, reml = TRUE) {
   formula = formula(ADAScog_integer~arm_time + 0)
   if (type == "null") {
@@ -51,17 +61,20 @@ analyze_mmrm_new = function(data_trial, type, reml = TRUE) {
   data_trial$SubjId = as.factor(data_trial$SubjId)
   data_trial$time_int = as.factor(data_trial$time_int)
   formula = update.formula(old = formula, .~. + us(time_int | SubjId))
-  fit = mmrm::mmrm(
+  mmrm_fit = mmrm::mmrm(
     formula = formula,
     data = data_trial,
     reml = reml,
     control = mmrm::mmrm_control(method = ifelse(reml, "Kenward-Roger", "Satterthwaite"))
   )
-  fit$data = NULL
-  fit$tmb_data = NULL
-  fit$tmb_object = NULL
+  # By default, the actual data set is save into the object returned by
+  # mmmrm::mmrm(). This causes a significant overhead. We therefore manually
+  # remove the data saved into `fit`.
+  mmrm_fit$data = NULL
+  mmrm_fit$tmb_data = NULL
+  mmrm_fit$tmb_object = NULL
   gc()
-  return(fit)
+  return(mmrm_fit)
 }
 
 get_tct_est = function(data_trial_wide, index = 1:nrow(data_trial_wide)) {
