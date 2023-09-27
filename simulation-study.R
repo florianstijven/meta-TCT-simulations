@@ -16,13 +16,13 @@ a = Sys.time()
 vcov_ref = matrix(c(45.1, 40.0, 45.1, 54.9, 53.6, 60.8,
                     40.0, 57.8, 54.4, 66.3, 64.1, 74.7,
                     45.1, 54.4, 72.0, 80.0, 77.6, 93.1, 
-                    54.9, 66.3, 80.0, 109.8, 99.3, 121.7
+                    54.9, 66.3, 80.0, 109.8, 99.3, 121.7,
                     53.6, 64.1, 77.6, 99.3, 111.4, 127.8, 
                     60.8, 74.7, 93.1, 121.7, 127.8, 191.4), nrow = 6, byrow = TRUE)
 # Mean values as reported by Raket (2022): `normal`. The `fast` vector
 # represents an additional scenario where progression goes faster and/or the
 # study duration is longer.
-time_means_list = list(
+ref_means_list = list(
   normal = c(19.6, 20.5, 20.9, 22.7, 23.8, 27.4),
   fast = c(18, 19.7, 20.9, 22.7, 24.7, 29.2)
 )
@@ -153,15 +153,63 @@ proportional_slowing_nlm = function(data, start_vec) {
 
 #---------
 
-for (i in 1:nrow(settings)) {
-  duration_i = as.character(settings[i, "duration"])
-  gamma_slowing_i = as.numeric(settings[i, "gamma_slowing"])
-  print(paste(duration_i, gamma_slowing_i))
-  time_means = time_means_list[[duration_i]]
-  time_means_trt = spline(x = 0:4, y = time_means, xout = gamma_slowing_i * 0:4)$y
+
+settings_tbl = settings[1:8, ] %>%
+  rowwise(everything()) %>%
+  summarise(
+    K = length(time_points),
+    time_names = list(paste0("month_", time_points)),
+    ref_means = list(ref_means_list[[progression]][1:K]),
+    trt_means = list(
+      spline(
+        x = time_points,
+        y = ref_means,
+        xout = gamma_slowing * time_points
+      )$y
+    )
+  ) %>%
+  ungroup() %>%
+  rowwise(c("progression", "gamma_slowing", "n", "time_points", "K")) %>%
+  reframe(
+    tibble(as_tibble(
+      mvtnorm::rmvnorm(
+        n = (n / 2) * N_trials,
+        mean = unlist(ref_means),
+        sigma = vcov_ref[1:K, 1:K]
+      )
+    ) %>% `colnames<-`(c(unlist(
+      time_names
+    ))),
+    arm = 0L) %>%
+      bind_rows(tibble(
+        as_tibble(
+          mvtnorm::rmvnorm(
+            n = (n / 2) * N_trials,
+            mean = unlist(trt_means),
+            sigma = vcov_ref[1:K, 1:K]
+          )
+        ) %>% `colnames<-`(c(unlist(time_names))),
+        arm = 1L
+      )) %>%
+      mutate(
+        trial_number = rep(1:N_trials, times = n),
+        SubjId = 1:(n * N_trials)
+      ) %>%
+      pivot_longer(cols = time_names, 
+                   names_to = "time_arm",
+                   values_to = "outcome") %>%
+      mutate(time_int = rep(1:K, N_trials * n))
+  ) 
+
+settings_tbl = settings_tbl %>% 
+  group_by(progression, gamma_slowing, n, K, trial_number) %>%
+  summarise(trial_data = list(pick(c("time_arm", "outcome", "time_int", "SubjId"))))
   
+
+# We iterate over all possible settings. 
+for (i in 1:nrow(settings)) {
   # simulate data
-  n = settings$n[i]
+  n = settings_tbl$n[i]
   data_trial = rbind(
     mvtnorm::rmvnorm(n = (n / 2) * N_trials, 
                      mean = time_means, 
