@@ -10,6 +10,7 @@ library(TCT)
 library(mmrm)
 library(tidyverse)
 library(nlme)
+library(doParallel)
 a = Sys.time()
 # Variance-Covariance matrix as reported by Raket (2022, doi: 10.1002/sim.9581) in
 # section 5.1.
@@ -39,7 +40,6 @@ settings = tidyr::expand_grid(
     c(0, 6, 12, 18, 24, 36)
   )
 )
-results = list()
 
 # Number of independent replications for each setting.
 N_trials = 5e3
@@ -53,7 +53,7 @@ set.seed(1)
 # mmrm::mmrm() function. The model fit object returned by the latter function is
 # returned by this function as well.
 analyze_mmrm_new = function(data_trial, type, reml = TRUE) {
-  formula = formula(ADAScog_integer~arm_time + 0)
+  formula = formula(outcome~arm_time + 0)
   if (type == "null") {
     formula = update.formula(old = formula,
                              .~. - arm_time + as.factor(time_int))
@@ -154,12 +154,18 @@ proportional_slowing_nlm = function(data, start_vec) {
 #---------
 
 
-settings_tbl = settings[1:8, ] %>%
+simulated_data_tbl = settings[1:8,] %>%
+  # Group by each row.
   rowwise(everything()) %>%
+  # Compute a set of variables that will be useful further on.
   summarise(
+    # The number of measurement occasions.
     K = length(time_points),
+    # Character vector for the naming the various measurement occasions.
     time_names = list(paste0("month_", time_points)),
+    # Mean vector in the reference group.
     ref_means = list(ref_means_list[[progression]][1:K]),
+    # Mean vector in the active treatment group.
     trt_means = list(
       spline(
         x = time_points,
@@ -169,73 +175,100 @@ settings_tbl = settings[1:8, ] %>%
     )
   ) %>%
   ungroup() %>%
+  # For each row in the original tibble, the data will be generated for N_trial
+  # trials.
   rowwise(c("progression", "gamma_slowing", "n", "time_points", "K")) %>%
   reframe(
     tibble(as_tibble(
+      # Generate data for the control group from a multivariate normal
+      # distribution.
       mvtnorm::rmvnorm(
         n = (n / 2) * N_trials,
         mean = unlist(ref_means),
         sigma = vcov_ref[1:K, 1:K]
-      )
-    ) %>% `colnames<-`(c(unlist(
-      time_names
-    ))),
+      ) %>% `colnames<-`(c(unlist(time_names)))
+    ) ,
     arm = 0L) %>%
       bind_rows(tibble(
+        # Generate data for the active treatment group.
         as_tibble(
           mvtnorm::rmvnorm(
             n = (n / 2) * N_trials,
             mean = unlist(trt_means),
             sigma = vcov_ref[1:K, 1:K]
-          )
-        ) %>% `colnames<-`(c(unlist(time_names))),
+          ) %>% `colnames<-`(c(unlist(time_names)))
+        ),
         arm = 1L
       )) %>%
       mutate(
+        # Add identifier for each generated trial.
         trial_number = rep(1:N_trials, times = n),
         SubjId = 1:(n * N_trials)
+      ) %>% 
+      # Convert the data, generated in a wide format, to the long format.
+      pivot_longer(
+        cols = all_of(time_names),
+        names_to = "time_chr",
+        values_to = "outcome"
       ) %>%
-      pivot_longer(cols = time_names, 
-                   names_to = "time_arm",
-                   values_to = "outcome") %>%
-      mutate(time_int = rep(1:K, N_trials * n))
+      # Add an integer variable indicting the measurement occasion. Also add a
+      # categorical variable for each time-arm combination. Except for the
+      # baseline measurement occasion.
+      mutate(
+        time_int = as.integer(stringr::str_remove_all(time_chr, "month_")),
+        arm_time = ifelse(time_int == 0L,
+                          "baseline",
+                          paste0(arm, ":", time_int))
+      )
   ) 
 
-settings_tbl = settings_tbl %>% 
+# The data are not saved very efficiently. For instance, variables indicating
+# trial characteristics are duplicated for each outcome. Therefore, we construct
+# a tibble where there is one row for each generated data set corresponding to a
+# single trial.
+simulated_data_tbl = simulated_data_tbl %>% 
   group_by(progression, gamma_slowing, n, K, trial_number) %>%
-  summarise(trial_data = list(pick(c("time_arm", "outcome", "time_int", "SubjId"))))
-  
+  summarise(trial_data = list(pick(c("arm_time", "outcome", "time_int", "SubjId"))))
+
+# In what follows, we we use parallel computing. Note that we use functions for
+# parallel computing that DO NOT work on Windows. 
+registerDoParallel(cores=ncores)
+
+# Fit the MMRM model for each generated data set.
+results_tbl = simulated_data_tbl %>%
+  mutate(
+    mmrm_fit = plyr::llply(
+      .data = trial_data, 
+      .fun = analyze_mmrm_new, 
+      type = "full"
+    )
+  )
+# We now no longer need `simulated_data_tbl`. To free up space, the object
+# containing the simulated data is removed.
+rm("simulated_data_tbl")
+
+# Compute p-value based on MMRM for each fitted model.
+results_tbl = simulated_data_tbl %>%
+  mutate(
+    mmrm_fit = plyr::llply(
+      .data = trial_data, 
+      .fun = function(x) {
+        # CHANGES ARE STILL NEEDED TO ALLOW FOR VARYING NUMBER OF MEASUREMENTS
+        contrast = matrix(data = 0, nrow = 4, ncol = length(mmrm::component(x, "beta_est")))
+        contrast[1:4, 1:4] = diag(1, nrow = 4)
+        contrast[1:4, 5:8] = diag(-1, nrow = 4)
+        return(mmrm::df_md(x, contrast)$p_val)
+      }, 
+      type = "full"
+    )
+  )
+
+
+
 
 # We iterate over all possible settings. 
 for (i in 1:nrow(settings)) {
-  # simulate data
-  n = settings_tbl$n[i]
-  data_trial = rbind(
-    mvtnorm::rmvnorm(n = (n / 2) * N_trials, 
-                     mean = time_means, 
-                     sigma = vcov_ref),
-    mvtnorm::rmvnorm(n = (n / 2) * N_trials, 
-                     mean = time_means_trt, 
-                     sigma = vcov_ref)
-  )
-  colnames(data_trial) = c("w0", "w25", "w50", "w75", "w100")
-  data_trial = data.frame(data_trial)
-  data_trial$arm = rep(0:1, each = (n / 2) * N_trials)
-  data_trial$trial_number = rep(1:N_trials, times = n)
-  data_trial$SubjId = 1:(n * N_trials)
-  data_trial = data_trial %>%
-    pivot_longer(cols = c("w0", "w25", "w50", "w75", "w100"), 
-                 values_to = "ADAScog_integer")
-  data_trial$time_int = rep(1:5, N_trials * n)
-  data_trial = data_trial %>%
-    mutate(arm_time = ifelse(time_int == 1L,
-                             "baseline",
-                             paste0(arm, ":", time_int)))
   
-  list_of_trials = base::split(x = as.data.frame(data_trial), f = data_trial$trial_number)
-  rm("data_trial")
-  gc()
-  print("simulated data")
   #------
   # MMRM
   cl = makeCluster(ncores)
