@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+.libPaths()
 args = commandArgs(trailingOnly=TRUE)
 print(args)
 Sys.setenv(TZ='Europe/Brussels')
@@ -178,18 +179,18 @@ print("Data Simulations Done")
 
 # Fit the MMRM model for each generated data set.
 
-# results_tbl$mmrm_fit = parallel::mclapply(
-#   X = simulated_data_tbl$trial_data,
-#   FUN = analyze_mmrm_new,
-#   type = "FULL",
-#   mc.cores = ncores
-# )
-results_tbl = simulated_data_tbl %>%
-  mutate(mmrm_fit = lapply(
-    X = simulated_data_tbl$trial_data,
-    FUN = analyze_mmrm_new,
-    type = "FULL"
-  ))
+results_tbl$mmrm_fit = parallel::mclapply(
+  X = simulated_data_tbl$trial_data,
+  FUN = analyze_mmrm_new,
+  type = "FULL",
+  mc.cores = 17
+)
+# results_tbl = simulated_data_tbl %>%
+#   mutate(mmrm_fit = lapply(
+#     X = simulated_data_tbl$trial_data,
+#     FUN = analyze_mmrm_new,
+#     type = "FULL"
+#   ))
 
 print(Sys.time() - a)
 print("MMRMs fitted")
