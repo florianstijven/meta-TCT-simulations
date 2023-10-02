@@ -298,7 +298,7 @@ results_tbl = results_tbl %>%
         )
       },
       .expand = FALSE,
-      .parallel = FALSE,
+      .parallel = TRUE,
       .inform = TRUE
     )
   )
