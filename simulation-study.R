@@ -185,7 +185,30 @@ results_tbl = simulated_data_tbl %>%
   select(-trial_data)
 results_tbl$mmrm_fit = plyr::llply(
   .data = simulated_data_tbl$trial_data,
-  .fun = analyze_mmrm_new,
+  .fun = function(data_trial, type, reml = TRUE) {
+    formula = formula(outcome~arm_time + 0)
+    if (type == "null") {
+      formula = update.formula(old = formula,
+                               .~. - arm_time + as.factor(time_int))
+    }
+    data_trial$SubjId = as.factor(data_trial$SubjId)
+    data_trial$time_int = as.factor(data_trial$time_int)
+    formula = update.formula(old = formula, .~. + us(time_int | SubjId))
+    mmrm_fit = mmrm::mmrm(
+      formula = formula,
+      data = data_trial,
+      reml = reml,
+      control = mmrm::mmrm_control(method = ifelse(reml, "Kenward-Roger", "Satterthwaite"))
+    )
+    # By default, the actual data set is save into the object returned by
+    # mmmrm::mmrm(). This causes a significant overhead. We therefore manually
+    # remove the data saved into `fit`.
+    mmrm_fit$data = NULL
+    mmrm_fit$tmb_data = NULL
+    mmrm_fit$tmb_object = NULL
+    gc()
+    return(mmrm_fit)
+  },
   type = "FULL",
   .parallel = TRUE
 )
