@@ -179,13 +179,19 @@ print("Data Simulations Done")
 # Fit the MMRM model for each generated data set.
 results_tbl = simulated_data_tbl %>%
   select(-trial_data)
-results_tbl$mmrm_fit = parallel::mclapply(
+# results_tbl$mmrm_fit = parallel::mclapply(
+#   X = simulated_data_tbl$trial_data,
+#   FUN = analyze_mmrm_new,
+#   type = "FULL",
+#   mc.cores = ncores
+# )
+results_tbl$mmrm_fit = lapply(
   X = simulated_data_tbl$trial_data,
   FUN = analyze_mmrm_new,
-  type = "FULL",
-  mc.cores = ncores
+  type = "FULL"
 )
 
+print(Sys.time() - a)
 print("MMRMs fitted")
 
 # We now no longer need `simulated_data_tbl`. To free up space, the object
