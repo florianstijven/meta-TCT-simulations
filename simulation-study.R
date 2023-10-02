@@ -138,7 +138,7 @@ simulated_data_tbl = settings %>%
         SubjId = 1:(n * N_trials)
       ) %>%
       # Convert the data, generated in a wide format, to the long format.
-      pivot_longer(
+      tidyr::pivot_longer(
         cols = all_of(time_names),
         names_to = "time_chr",
         values_to = "outcome"
