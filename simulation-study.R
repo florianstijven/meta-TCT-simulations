@@ -245,8 +245,9 @@ results_tbl = results_tbl %>%
         drop_first_occasions > 0 & inference == "score"
       ))
   ) %>%
-  mutate(TCT_meta_fit = plyr::mlply(
-    .data = pick(
+  mutate(TCT_meta_fit = parallel::parLapply(
+    cl = cl,
+    X = = pick(
       c(
         "coef_mmrm",
         "vcov_mmrm",
@@ -256,12 +257,12 @@ results_tbl = results_tbl %>%
         "time_points"
       )
     ),
-    .fun = function(coef_mmrm,
-                    vcov_mmrm,
-                    constraints,
-                    interpolation,
-                    K,
-                    time_points) {
+    fun = function(coef_mmrm,
+                   vcov_mmrm,
+                   constraints,
+                   interpolation,
+                   K,
+                   time_points) {
       TCT::TCT_meta(
         time_points = unlist(time_points),
         exp_estimates = unlist(coef_mmrm)[K:(2 * K - 2)],
@@ -272,9 +273,7 @@ results_tbl = results_tbl %>%
         B = 0,
         constraints = constraints
       )
-    },
-    .expand = FALSE,
-    .parallel = TRUE
+    }
   ))
 
 attr(results_tbl$TCT_meta_fit, "split_type") = NULL
@@ -286,26 +285,33 @@ print("meta-TCT finished")
 
 # Estimate common acceleration factor.
 results_tbl = results_tbl %>%
-  mutate(
-    TCT_meta_fit = plyr::mlply(
-      .data = pick(c("TCT_meta_fit", "drop_first_occasions", "inference", "constraints")),
-      .fun = function(TCT_meta_fit, drop_first_occasions, inference, constraints) {
-        type = NULL
-        if (inference == "score") type = "custom"
-        TCT::TCT_meta_common(
-          TCT_Fit = TCT_meta_fit[[1]],
-          inference = inference, 
-          B = 0, 
-          select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit[[1]])),
-          constraints = constraints,
-          type = type
-        )
-      },
-      .expand = FALSE,
-      .parallel = TRUE,
-      .inform = TRUE
-    )
-  )
+  mutate(TCT_meta_fit = parallel::parLapply(
+    cl = cl,
+    X = pick(
+      c(
+        "TCT_meta_fit",
+        "drop_first_occasions",
+        "inference",
+        "constraints"
+      )
+    ),
+    fun = function(TCT_meta_fit,
+                   drop_first_occasions,
+                   inference,
+                   constraints) {
+      type = NULL
+      if (inference == "score")
+        type = "custom"
+      TCT::TCT_meta_common(
+        TCT_Fit = TCT_meta_fit[[1]],
+        inference = inference,
+        B = 0,
+        select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit[[1]])),
+        constraints = constraints,
+        type = type
+      )
+    }
+  ))
 
 # Compute confidence intervals and p-values. First, we need to call the summary
 # method on the object returned by TCT_meta_common(). This method computes the
@@ -314,10 +320,10 @@ results_tbl = results_tbl %>%
 # tibble.
 results_tbl = results_tbl %>%
   mutate(
-    summary_TCT_common = plyr::llply(
-      .data = TCT_meta_fit,
-      .fun = summary, 
-      .parallel = TRUE 
+    summary_TCT_common = parallel::parLapply(
+      cl = cl,
+      X = TCT_meta_fit,
+      fun = summary
     )
   )
 

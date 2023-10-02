@@ -9,7 +9,7 @@
 
 module load R
 
-Rscript simulation-study.R 9
+Rscript simulation-study.R 17
 
 
 
