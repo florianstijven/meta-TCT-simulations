@@ -8,7 +8,7 @@ renv::restore()
 # Load the required packages. 
 library(TCT)
 library(mmrm)
-library(tidyverse)
+library(dplyr)
 library(doParallel)
 a = Sys.time()
 # Variance-Covariance matrix as reported by Raket (2022, doi: 10.1002/sim.9581) in
