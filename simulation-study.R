@@ -181,15 +181,12 @@ print("Data Simulations Done")
 registerDoParallel(cores=ncores)
 
 # Fit the MMRM model for each generated data set.
-results_tbl = simulated_data_tbl %>%
-  mutate(
-    mmrm_fit = plyr::llply(
-      .data = trial_data,
-      .fun = analyze_mmrm_new,
-      type = "FULL",
-      .parallel = TRUE
-    )
-  )
+results_tbl$mmrm_fit = plyr::llply(
+  .data = simulated_data_tbl$trial_data,
+  .fun = analyze_mmrm_new,
+  type = "FULL",
+  .parallel = TRUE
+)
 
 print("MMRMs fitted")
 
@@ -295,7 +292,7 @@ results_tbl = results_tbl %>%
       .fun = function(TCT_meta_fit, drop_first_occasions, inference, constraints) {
         type = NULL
         if (inference == "score") type = "custom"
-        TCT_meta_common(
+        TCT::TCT_meta_common(
           TCT_Fit = TCT_meta_fit[[1]],
           inference = inference, 
           B = 0, 
