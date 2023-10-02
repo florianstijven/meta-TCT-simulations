@@ -245,18 +245,14 @@ results_tbl = results_tbl %>%
         drop_first_occasions > 0 & inference == "score"
       ))
   ) %>%
-  mutate(TCT_meta_fit = parallel::parLapply(
+  mutate(TCT_meta_fit = parallel::clusterMap(
     cl = cl,
-    X = pick(
-      c(
-        "coef_mmrm",
-        "vcov_mmrm",
-        "constraints",
-        "interpolation",
-        "K",
-        "time_points"
-      )
-    ),
+    coef_mmrm = coef_mmrm,
+    vcov_mmrm = vcov_mmrm,
+    constraints = constraints,
+    interpolation = interpolation,
+    K = K, 
+    time_points = time_points,
     fun = function(coef_mmrm,
                    vcov_mmrm,
                    constraints,
@@ -264,10 +260,10 @@ results_tbl = results_tbl %>%
                    K,
                    time_points) {
       TCT::TCT_meta(
-        time_points = unlist(time_points),
-        exp_estimates = unlist(coef_mmrm)[K:(2 * K - 2)],
-        ctrl_estimates = unlist(coef_mmrm)[c(2 * K - 1, 1:(K - 1))],
-        vcov = vcov_mmrm[[1]],
+        time_points = time_points,
+        exp_estimates = coef_mmrm[K:(2 * K - 2)],
+        ctrl_estimates = coef_mmrm[c(2 * K - 1, 1:(K - 1))],
+        vcov = vcov_mmrm,
         interpolation = interpolation,
         inference = "score",
         B = 0,
@@ -285,16 +281,12 @@ print("meta-TCT finished")
 
 # Estimate common acceleration factor.
 results_tbl = results_tbl %>%
-  mutate(TCT_meta_fit = parallel::parLapply(
+  mutate(TCT_meta_fit = parallel::clusterMap(
     cl = cl,
-    X = pick(
-      c(
-        "TCT_meta_fit",
-        "drop_first_occasions",
-        "inference",
-        "constraints"
-      )
-    ),
+    TCT_meta_fit = TCT_meta_fit,
+    drop_first_occasions = drop_first_occasions,
+    inference = inference,
+    constraints = constraints,
     fun = function(TCT_meta_fit,
                    drop_first_occasions,
                    inference,
@@ -303,10 +295,10 @@ results_tbl = results_tbl %>%
       if (inference == "score")
         type = "custom"
       TCT::TCT_meta_common(
-        TCT_Fit = TCT_meta_fit[[1]],
+        TCT_Fit = TCT_meta_fit,
         inference = inference,
         B = 0,
-        select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit[[1]])),
+        select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit)),
         constraints = constraints,
         type = type
       )
