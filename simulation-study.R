@@ -3,6 +3,8 @@ args = commandArgs(trailingOnly=TRUE)
 print(args)
 Sys.setenv(TZ='Europe/Brussels')
 ncores = as.integer(args[1])
+# Ensure to the state of packages is up-to-date.
+renv::restore()
 # Load the required packages. 
 library(TCT)
 library(mmrm)
