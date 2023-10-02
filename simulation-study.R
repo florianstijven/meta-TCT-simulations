@@ -247,7 +247,7 @@ results_tbl = results_tbl %>%
   ) %>%
   mutate(TCT_meta_fit = parallel::parLapply(
     cl = cl,
-    X = = pick(
+    X = pick(
       c(
         "coef_mmrm",
         "vcov_mmrm",
