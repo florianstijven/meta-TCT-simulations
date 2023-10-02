@@ -1,15 +1,12 @@
 #!/usr/bin/env Rscript
 args = commandArgs(trailingOnly=TRUE)
-.libPaths(new = "/data/leuven/351/vsc35197/R")
 print(args)
 Sys.setenv(TZ='Europe/Brussels')
 ncores = as.integer(args[1])
-save_to = args[2]
 # Load the required packages. 
 library(TCT)
 library(mmrm)
 library(tidyverse)
-library(nlme)
 library(doParallel)
 a = Sys.time()
 # Variance-Covariance matrix as reported by Raket (2022, doi: 10.1002/sim.9581) in
@@ -42,7 +39,7 @@ settings = tidyr::expand_grid(
 )
 
 # Number of independent replications for each setting.
-N_trials = 5e3
+N_trials = 3
 # Set the seed for reproducibility.
 set.seed(1)
 
@@ -77,84 +74,10 @@ analyze_mmrm_new = function(data_trial, type, reml = TRUE) {
   return(mmrm_fit)
 }
 
-get_tct_est = function(data_trial_wide, index = 1:nrow(data_trial_wide)) {
-  #convert data from wide to long format
-  data_trial_long = data_trial_wide[index, ] %>%
-    pivot_longer(cols = 4:8, names_to = "time_int", values_to = "ADAScog_integer") %>%
-    mutate(SubjId = rep(1:nrow(data_trial_wide[index, ]), each = 5),
-           time_int = as.integer(time_int),
-           arm_time = ifelse(time_int == 1L,
-                             "baseline",
-                             paste0(arm, ":", time_int)))
-  mmrm_fit = analyze_mmrm_new(data_trial_long, type = "full")
-  TCT_fit = TCT(
-    time_points = 0:4,
-    ctrl_estimates = coef(mmrm_fit)[c(9, 1:4)],
-    exp_estimates = coef(mmrm_fit)[5:8],
-    vcov = vcov(mmrm_fit)[c(9, 1:4, 5:8), c(9, 1:4, 5:8)],
-    interpolation = "spline",
-    B = 0
-  )
-  TCT_common_fit = TCT_common(
-    TCT_Fit = TCT_fit,
-    B = 0,
-    bs_fix_vcov = FALSE,
-    select_coef = 1:4
-  )
-  return(TCT_common_fit$coefficients)
-}
-
-bs_mmrm_tct = function(data_trial, R = 50) {
-  data_trial_wide = data_trial %>%
-    pivot_wider(id_cols = c("arm", "trial_number", "SubjId"), 
-                names_from = "time_int", values_from = "ADAScog_integer")
-  boot(data = data_trial_wide, 
-       statistic = get_tct_est,
-       R = R)
-}
-
-# Function to fit proportional slowing model directly. Code adapted from Raket
-# (2022).
-
-# Mean function based on cubic splines.
-TPMRM <- function(t, v0, v1, v2, v3, v4,
-                  log_gamma) {
-  gamma = exp(log_gamma)
-  months <- 0:4
-  t_out <- gamma * t 
-  
-  spline(x = months,
-         y = c(v0[1], v1[1], v2[1], v3[1], v4[1]),
-         method = 'natural',
-         xout = t_out)$y
-}
-
-proportional_slowing_nlm = function(data, start_vec) {
-  # The first time point should be zero.
-  t0 = min(data$time_int)
-  data = data %>%
-    mutate(time_int = time_int - t0)
-    
-  # Fit model
-  pst_pmrm <-
-    nlme::gnls(
-      model = ADAScog_integer ~ TPMRM(time_int, v0, v1, v2, v3, v4,
-                                      log_gamma),
-      data = data,
-      params = list(v0 + v1 + v2 + v3 + v4 ~ 1,
-                    log_gamma ~ arm + 0),
-      correlation = corSymm(form = ~ I(time_int + 1) | SubjId),
-      weights = varIdent(form = ~ 1 | I(time_int + 1)),
-      start = start_vec,
-      control = gnlsControl(nlsTol = 1)
-    )
-  return(pst_pmrm)
-}
-
 #---------
 
 
-simulated_data_tbl = settings[1:8,] %>%
+simulated_data_tbl = settings %>%
   # Group by each row.
   rowwise(everything()) %>%
   # Compute a set of variables that will be useful further on.
@@ -177,7 +100,14 @@ simulated_data_tbl = settings[1:8,] %>%
   ungroup() %>%
   # For each row in the original tibble, the data will be generated for N_trial
   # trials.
-  rowwise(c("progression", "gamma_slowing", "n", "time_points", "K")) %>%
+  rowwise(c(
+    "progression",
+    "gamma_slowing",
+    "n",
+    "time_points",
+    "K",
+    "time_points"
+  )) %>%
   reframe(
     tibble(as_tibble(
       # Generate data for the control group from a multivariate normal
@@ -204,7 +134,7 @@ simulated_data_tbl = settings[1:8,] %>%
         # Add identifier for each generated trial.
         trial_number = rep(1:N_trials, times = n),
         SubjId = 1:(n * N_trials)
-      ) %>% 
+      ) %>%
       # Convert the data, generated in a wide format, to the long format.
       pivot_longer(
         cols = all_of(time_names),
@@ -218,7 +148,16 @@ simulated_data_tbl = settings[1:8,] %>%
         time_int = as.integer(stringr::str_remove_all(time_chr, "month_")),
         arm_time = ifelse(time_int == 0L,
                           "baseline",
-                          paste0(arm, ":", time_int))
+                          paste0(
+                            arm,
+                            ":",
+                            stringr::str_pad(
+                              time_int,
+                              side = "left",
+                              pad = "0",
+                              width = 2
+                            )
+                          ))
       )
   ) 
 
@@ -226,9 +165,12 @@ simulated_data_tbl = settings[1:8,] %>%
 # trial characteristics are duplicated for each outcome. Therefore, we construct
 # a tibble where there is one row for each generated data set corresponding to a
 # single trial.
-simulated_data_tbl = simulated_data_tbl %>% 
-  group_by(progression, gamma_slowing, n, K, trial_number) %>%
-  summarise(trial_data = list(pick(c("arm_time", "outcome", "time_int", "SubjId"))))
+simulated_data_tbl = simulated_data_tbl %>%
+  group_by(progression, gamma_slowing, n, K, trial_number, time_points) %>%
+  summarise(trial_data = list(pick(
+    c("arm_time", "outcome", "time_int", "SubjId")
+  ))) %>%
+  ungroup()
 
 # In what follows, we we use parallel computing. Note that we use functions for
 # parallel computing that DO NOT work on Windows. 
@@ -238,9 +180,10 @@ registerDoParallel(cores=ncores)
 results_tbl = simulated_data_tbl %>%
   mutate(
     mmrm_fit = plyr::llply(
-      .data = trial_data, 
-      .fun = analyze_mmrm_new, 
-      type = "full"
+      .data = trial_data,
+      .fun = analyze_mmrm_new,
+      type = "FULL",
+      .parallel = TRUE
     )
   )
 # We now no longer need `simulated_data_tbl`. To free up space, the object
@@ -248,426 +191,158 @@ results_tbl = simulated_data_tbl %>%
 rm("simulated_data_tbl")
 
 # Compute p-value based on MMRM for each fitted model.
-results_tbl = simulated_data_tbl %>%
-  mutate(
-    mmrm_fit = plyr::llply(
-      .data = trial_data, 
-      .fun = function(x) {
-        # CHANGES ARE STILL NEEDED TO ALLOW FOR VARYING NUMBER OF MEASUREMENTS
-        contrast = matrix(data = 0, nrow = 4, ncol = length(mmrm::component(x, "beta_est")))
-        contrast[1:4, 1:4] = diag(1, nrow = 4)
-        contrast[1:4, 5:8] = diag(-1, nrow = 4)
-        return(mmrm::df_md(x, contrast)$p_val)
-      }, 
-      type = "full"
-    )
-  )
-
-
-
-
-# We iterate over all possible settings. 
-for (i in 1:nrow(settings)) {
-  
-  #------
-  # MMRM
-  cl = makeCluster(ncores)
-  clusterEvalQ(cl, .libPaths(new = "/data/leuven/351/vsc35197/R"))
-  print("sss")
-  mmrm_fits = parallel::parLapply(cl = cl,
-                                  X = list_of_trials,
-                                  fun = analyze_mmrm_new,
-                                  type = "full")
-  mmrm_fits_null = parallel::parLapply(cl = cl,
-                                  X = list_of_trials,
-                                  fun = analyze_mmrm_new,
-                                  type = "null", 
-                                  reml = FALSE)
-  stopCluster(cl)
-  
-  
-  print("mmrm fitted")
-  
-  cl = makeCluster(ncores)
-  clusterEvalQ(cl, .libPaths(new = "/data/leuven/351/vsc35197/R"))
-  p1 = parSapply(
-    X = mmrm_fits,
+results_tbl = results_tbl %>%
+  mutate(p_value_mmrm = sapply(
+    X = mmrm_fit,
     FUN = function(x) {
-      contrast = matrix(data = 0, nrow = 4, ncol = length(mmrm::component(x, "beta_est")))
-      contrast[1:4, 1:4] = diag(1, nrow = 4)
-      contrast[1:4, 5:8] = diag(-1, nrow = 4)
+      # Compute number of post-randomization measurement occasions.
+      K = (length(coef(x)) - 1) / 2
+      contrast = matrix(data = 0,
+                        nrow = K,
+                        ncol = length(coef(x)))
+      contrast[1:K, 1:K] = diag(1, nrow = K)
+      contrast[1:K, (K + 1):(2 * K)] = diag(-1, nrow = K)
       return(mmrm::df_md(x, contrast)$p_val)
+    }
+  ))
+
+# Compute non-linear regression model.
+
+# To save space, we now remove the generated data, and model fit objects. From
+# the latter, we first extract the estimated variance-covariance matrix and
+# estimated coefficients.
+results_tbl = results_tbl %>%
+  mutate(
+    vcov_mmrm = lapply(
+      X = mmrm_fit,
+      FUN = vcov
+    ),
+    coef_mmrm = lapply(
+      X = mmrm_fit,
+      FUN = coef
+    )
+  ) %>%
+  select(-trial_data, -mmrm_fit)
+
+# Apply meta-TCT methodology.
+results_tbl = results_tbl %>%
+  # We first add additional columns that specify the inference options.
+  cross_join(
+    tidyr::expand_grid(
+      drop_first_occasions = 0:2,
+      constraints = c(TRUE, FALSE),
+      interpolation = c("spline", "linear"),
+      inference = c("wald", "score", "least-squares")
+    ) %>%
+      # We do not consider pre-selected measurement occasions if we adaptively
+      # estimate the weights because this is contradictory. Either the weights are
+      # selected a priori, or the weights are determined adaptively.
+      filter(!(
+        drop_first_occasions > 0 & inference == "score"
+      ))
+  ) %>%
+  mutate(TCT_meta_fit = plyr::mlply(
+    .data = pick(
+      c(
+        "coef_mmrm",
+        "vcov_mmrm",
+        "constraints",
+        "interpolation",
+        "K",
+        "time_points"
+      )
+    ),
+    .fun = function(coef_mmrm,
+                    vcov_mmrm,
+                    constraints,
+                    interpolation,
+                    K,
+                    time_points) {
+      TCT::TCT_meta(
+        time_points = unlist(time_points),
+        exp_estimates = unlist(coef_mmrm)[K:(2 * K - 2)],
+        ctrl_estimates = unlist(coef_mmrm)[c(2 * K - 1, 1:(K - 1))],
+        vcov = vcov_mmrm[[1]],
+        interpolation = interpolation,
+        inference = "score",
+        B = 0,
+        constraints = constraints
+      )
     },
-    cl = cl
-  )
-  stopCluster(cl)
-  print("mmrm p-values")
+    .expand = FALSE,
+    .parallel = TRUE
+  ))
 
-  
-  # TCT
-  cl = makeCluster(ncores)
-  clusterEvalQ(cl, .libPaths(new = "/data/leuven/351/vsc35197/R"))
-  clusterEvalQ(cl, library(TCT))
-  clusterEvalQ(cl, library(mmrm))
-  clusterEvalQ(cl, library(tidyverse))
-  clusterEvalQ(cl, library(stats))
-  clusterEvalQ(cl, library(mvtnorm))
-  spline_common_1_4_results = parallel::parLapply(
-    cl = cl,
-    X = mmrm_fits,
-    fun = function(x) {
-      failed_return_value = list(
-        p_bootstrap = NA,
-        ci_bootstrap = NA,
-        coefficients = NA,
-        bootstrap_estimates = NA
-      )
-      error = TRUE
-      try({
-        TCT_fit = TCT(
-          time_points = 0:4,
-          ctrl_estimates = coef(x)[c(9, 1:4)],
-          exp_estimates = coef(x)[5:8],
-          vcov = vcov(x)[c(9, 1:4, 5:8), c(9, 1:4, 5:8)],
-          interpolation = "spline",
-          B = 0
-        )
-        TCT_common_fit = TCT_common(
-          TCT_Fit = TCT_fit,
-          B = 2e3,
-          bs_fix_vcov = FALSE,
-          select_coef = 1:4
-        )
-        error = FALSE
-      })
-      if (error)
-        return(failed_return_value)
-      else
-        return(summary(TCT_common_fit))
-    }
-  )
-  spline_common_2_4_results = parallel::parLapply(
-    cl = cl,
-    X = mmrm_fits,
-    fun = function(x) {
-      failed_return_value = list(
-        p_bootstrap = NA,
-        ci_bootstrap = NA,
-        coefficients = NA,
-        bootstrap_estimates = NA
-      )
-      error = TRUE
-      try({
-        TCT_fit = TCT(
-          time_points = 0:4,
-          ctrl_estimates = coef(x)[c(9, 1:4)],
-          exp_estimates = coef(x)[5:8],
-          vcov = vcov(x)[c(9, 1:4, 5:8), c(9, 1:4, 5:8)],
-          interpolation = "spline",
-          B = 0
-        )
-        TCT_common_fit = TCT_common(
-          TCT_Fit = TCT_fit,
-          B = 2e3,
-          bs_fix_vcov = FALSE,
-          select_coef = 2:4
-        )
-        error = FALSE
-      })
-      if (error)
-        return(failed_return_value)
-      else
-        return(summary(TCT_common_fit))
-    }
-  )
-  spline_common_3_4_results = parallel::parLapply(
-    cl = cl,
-    X = mmrm_fits,
-    fun = function(x) {
-      failed_return_value = list(
-        p_bootstrap = NA,
-        ci_bootstrap = NA,
-        coefficients = NA,
-        bootstrap_estimates = NA
-      )
-      error = TRUE
-      try({
-        TCT_fit = TCT(
-          time_points = 0:4,
-          ctrl_estimates = coef(x)[c(9, 1:4)],
-          exp_estimates = coef(x)[5:8],
-          vcov = vcov(x)[c(9, 1:4, 5:8), c(9, 1:4, 5:8)],
-          interpolation = "spline",
-          B = 0
-        )
-        TCT_common_fit = TCT_common(
-          TCT_Fit = TCT_fit,
-          B = 2e3,
-          bs_fix_vcov = FALSE,
-          select_coef = 3:4
-        )
-        error = FALSE
-      })
-      if (error)
-        return(failed_return_value)
-      else
-        return(summary(TCT_common_fit))
-    }
-  )
-  stopCluster(cl)
-  print("TCT MMRM")
-  
-  # TCT with constraints
-  cl = makeCluster(ncores)
-  clusterEvalQ(cl, .libPaths(new = "/data/leuven/351/vsc35197/R"))
-  clusterEvalQ(cl, library(TCT))
-  clusterEvalQ(cl, library(mmrm))
-  clusterEvalQ(cl, library(tidyverse))
-  clusterEvalQ(cl, library(stats))
-  clusterEvalQ(cl, library(mvtnorm))
-  spline_common_1_4_results_constraint = parallel::parLapply(
-    cl = cl,
-    X = mmrm_fits,
-    fun = function(x) {
-      failed_return_value = list(
-        p_bootstrap = NA,
-        ci_bootstrap = NA,
-        coefficients = NA,
-        bootstrap_estimates = NA
-      )
-      error = TRUE
-      try({
-        TCT_fit = TCT(
-          time_points = 0:4,
-          ctrl_estimates = coef(x)[c(9, 1:4)],
-          exp_estimates = coef(x)[5:8],
-          vcov = vcov(x)[c(9, 1:4, 5:8), c(9, 1:4, 5:8)],
-          interpolation = "spline",
-          B = 0,
-          constraints = TRUE
-        )
-        TCT_common_fit = TCT_common(
-          TCT_Fit = TCT_fit,
-          B = 2e3,
-          bs_fix_vcov = FALSE,
-          select_coef = 1:4
-        )
-        error = FALSE
-      })
-      if (error)
-        return(failed_return_value)
-      else
-        return(summary(TCT_common_fit))
-    }
-  )
-  spline_common_2_4_results_constraint = parallel::parLapply(
-    cl = cl,
-    X = mmrm_fits,
-    fun = function(x) {
-      failed_return_value = list(
-        p_bootstrap = NA,
-        ci_bootstrap = NA,
-        coefficients = NA,
-        bootstrap_estimates = NA
-      )
-      error = TRUE
-      try({
-        TCT_fit = TCT(
-          time_points = 0:4,
-          ctrl_estimates = coef(x)[c(9, 1:4)],
-          exp_estimates = coef(x)[5:8],
-          vcov = vcov(x)[c(9, 1:4, 5:8), c(9, 1:4, 5:8)],
-          interpolation = "spline",
-          B = 0,
-          constraints = TRUE
-        )
-        TCT_common_fit = TCT_common(
-          TCT_Fit = TCT_fit,
-          B = 2e3,
-          bs_fix_vcov = FALSE,
-          select_coef = 2:4
-        )
-        error = FALSE
-      })
-      if (error)
-        return(failed_return_value)
-      else
-        return(summary(TCT_common_fit))
-    }
-  )
-  spline_common_3_4_results_constraint = parallel::parLapply(
-    cl = cl,
-    X = mmrm_fits,
-    fun = function(x) {
-      failed_return_value = list(
-        p_bootstrap = NA,
-        ci_bootstrap = NA,
-        coefficients = NA,
-        bootstrap_estimates = NA
-      )
-      error = TRUE
-      try({
-        TCT_fit = TCT(
-          time_points = 0:4,
-          ctrl_estimates = coef(x)[c(9, 1:4)],
-          exp_estimates = coef(x)[5:8],
-          vcov = vcov(x)[c(9, 1:4, 5:8), c(9, 1:4, 5:8)],
-          interpolation = "spline",
-          B = 0,
-          constraints = TRUE
-        )
-        TCT_common_fit = TCT_common(
-          TCT_Fit = TCT_fit,
-          B = 2e3,
-          bs_fix_vcov = FALSE,
-          select_coef = 3:4
-        )
-        error = FALSE
-      })
-      if (error)
-        return(failed_return_value)
-      else
-        return(summary(TCT_common_fit))
-    }
-  )
-  stopCluster(cl)
-  print("TCT MMRM (constraints)")
-  
-  # Non-linear model with IPD.
-  cl = parallel::makeCluster(ncores)
-  clusterEvalQ(cl, .libPaths(new = "/data/leuven/351/vsc35197/R"))
-  clusterEvalQ(cl, library(tidyverse))
-  clusterEvalQ(cl, library(nlme))
-  clusterExport(cl, c("proportional_slowing_nlm", "TPMRM"))
-
-  ps_nlm_fits = parallel::parLapply(
-    cl = cl,
-    X = list_of_trials,
-    fun = function(x, start_vec) {
-      failed_return_value = list(
-        tTable = matrix(NA, ncol = 5, nrow = 6)
-      )
-      error = TRUE
-      try({
-        nlm_fit = proportional_slowing_nlm(x, start_vec)
-        error = FALSE
-      })
-      if (error)
-        return(failed_return_value)
-      else
-        return(summary(nlm_fit))
-    },
-    start_vec = c(time_means, log(gamma_slowing_i))
-  )
-  stopCluster(cl)
-  print("nlm fitted")
+attr(results_tbl$TCT_meta_fit, "split_type") = NULL
+attr(results_tbl$TCT_meta_fit, "split_labels") = NULL
+str(attributes(results_tbl$TCT_meta_fit))
 
 
-  results[[i]] = list(
-    p1 = p1,
-    nlm_min2loglik = purrr::map2_dbl(
-      .x = mmrm_fits_null,
-      .y = ps_nlm_fits,
-      .f = function(.x, .y) {
-        min2loglik = NA
-        try({min2loglik = -2 * (logLik(.x) - logLik(.y))})
-        return(min2loglik)
-      }
-    ), 
-    mmrm_coef = purrr::map(mmrm_fits, stats::coef),
-    nlm_gamma = purrr::map(ps_nlm_fits, function(x) return(x$tTable[6, ])),
-    TCT_results = list(
-      list(
-        p_bs = purrr::map_dbl(spline_common_1_4_results, "p_bootstrap"),
-        ci_bs = purrr::map(spline_common_1_4_results, "ci_bootstrap"),
-        estimate = purrr::map_dbl(spline_common_1_4_results, "coefficients"),
-        se_bs = purrr::map_dbl(spline_common_1_4_results,
-                               function(x) {
-                                 sd(x$bootstrap_estimates[[1]])
-                               }),
-        bs_estimates = purrr::map(spline_common_1_4_results, "bootstrap_estimates"),
-        # bs_estimates_null = purrr::map(spline_common_1_4_results, "bootstrap_estimates_null"),
-        type = paste(duration_i, as.character(gamma_slowing_i)),
-        estimator = "1-4 unconstrained"
-      ),
-      list(
-        p_bs = purrr::map_dbl(spline_common_2_4_results, "p_bootstrap"),
-        ci_bs = purrr::map(spline_common_2_4_results, "ci_bootstrap"),
-        estimate = purrr::map_dbl(spline_common_2_4_results, "coefficients"),
-        se_bs = purrr::map_dbl(spline_common_2_4_results,
-                               function(x) {
-                                 sd(x$bootstrap_estimates[[1]])
-                               }),
-        bs_estimates = purrr::map(spline_common_2_4_results, "bootstrap_estimates"),
-        # bs_estimates_null = purrr::map(spline_common_2_4_results, "bootstrap_estimates_null"),
-        type = paste(duration_i, as.character(gamma_slowing_i)),
-        estimator = "2-4 unconstrained"
-      ),
-      list(
-        p_bs = purrr::map_dbl(spline_common_3_4_results, "p_bootstrap"),
-        ci_bs = purrr::map(spline_common_3_4_results, "ci_bootstrap"),
-        estimate = purrr::map_dbl(spline_common_3_4_results, "coefficients"),
-        se_bs = purrr::map_dbl(spline_common_3_4_results,
-                               function(x) {
-                                 sd(x$bootstrap_estimates[[1]])
-                               }),
-        bs_estimates = purrr::map(spline_common_3_4_results, "bootstrap_estimates"),
-        # bs_estimates_null = purrr::map(spline_common_3_4_results, "bootstrap_estimates_null"),
-        type = paste(duration_i, as.character(gamma_slowing_i)),
-        estimator = "3-4 unconstrained"
-      ),
-      list(
-        p_bs = purrr::map_dbl(spline_common_1_4_results_constraint, "p_bootstrap"),
-        ci_bs = purrr::map(spline_common_1_4_results_constraint, "ci_bootstrap"),
-        estimate = purrr::map_dbl(spline_common_1_4_results_constraint, "coefficients"),
-        se_bs = purrr::map_dbl(spline_common_1_4_results_constraint,
-                               function(x) {
-                                 sd(x$bootstrap_estimates[[1]])
-                               }),
-        bs_estimates = purrr::map(spline_common_1_4_results_constraint, "bootstrap_estimates"),
-        # bs_estimates_null = purrr::map(spline_common_1_4_results_constraint, "bootstrap_estimates_null"),
-        type = paste(duration_i, as.character(gamma_slowing_i)),
-        estimator = "1-4 constrained"
-      ),
-      list(
-        p_bs = purrr::map_dbl(spline_common_2_4_results_constraint, "p_bootstrap"),
-        ci_bs = purrr::map(spline_common_2_4_results_constraint, "ci_bootstrap"),
-        estimate = purrr::map_dbl(spline_common_2_4_results_constraint, "coefficients"),
-        se_bs = purrr::map_dbl(spline_common_2_4_results_constraint,
-                               function(x) {
-                                 sd(x$bootstrap_estimates[[1]])
-                               }),
-        bs_estimates = purrr::map(spline_common_2_4_results_constraint, "bootstrap_estimates"),
-        # bs_estimates_null = purrr::map(spline_common_2_4_results_constraint, "bootstrap_estimates_null"),
-        type = paste(duration_i, as.character(gamma_slowing_i)),
-        estimator = "2-4 constrained"
-      ),
-      list(
-        p_bs = purrr::map_dbl(spline_common_3_4_results_constraint, "p_bootstrap"),
-        ci_bs = purrr::map(spline_common_3_4_results_constraint, "ci_bootstrap"),
-        estimate = purrr::map_dbl(spline_common_3_4_results_constraint, "coefficients"),
-        se_bs = purrr::map_dbl(spline_common_3_4_results_constraint,
-                               function(x) {
-                                 sd(x$bootstrap_estimates[[1]])
-                               }),
-        bs_estimates = purrr::map(spline_common_3_4_results_constraint, "bootstrap_estimates"),
-        # bs_estimates_null = purrr::map(spline_common_3_4_results_constraint, "bootstrap_estimates_null"),
-        type = paste(duration_i, as.character(gamma_slowing_i)),
-        estimator = "3-4 constrained"
-      )
+# Estimate common acceleration factor.
+results_tbl = results_tbl %>%
+  mutate(
+    TCT_meta_fit = plyr::mlply(
+      .data = pick(c("TCT_meta_fit", "drop_first_occasions", "inference", "constraints")),
+      .fun = function(TCT_meta_fit, drop_first_occasions, inference, constraints) {
+        type = NULL
+        if (inference == "score") type = "custom"
+        TCT_meta_common(
+          TCT_Fit = TCT_meta_fit[[1]],
+          inference = inference, 
+          B = 0, 
+          select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit[[1]])),
+          constraints = constraints,
+          type = type
+        )
+      },
+      .expand = FALSE,
+      .parallel = FALSE,
+      .inform = TRUE
     )
   )
-  
-}
 
-results_df = tibble(
-  settings,
-  results
-)
+# Compute confidence intervals and p-values. First, we need to call the summary
+# method on the object returned by TCT_meta_common(). This method computes the
+# p-value and confidence intervals. Because this can take some time (confidence
+# intervals are computed numerically), we first save the summary-object to the
+# tibble.
+results_tbl = results_tbl %>%
+  mutate(
+    summary_TCT_common = plyr::llply(
+      .data = TCT_meta_fit,
+      .fun = summary, 
+      .parallel = TRUE 
+    )
+  )
+
+#Compute the confidence intervals and p-values.
+results_tbl = results_tbl %>%
+  mutate(
+    p_value_TCT_common = purrr::map_dbl(
+      .x = summary_TCT_common, 
+      .f = "p_value"
+    ),
+    conf_int_TCT_common = purrr::map(
+      .x = summary_TCT_common,
+      .f = "gamma_common_ci"
+    ),
+    se_TCT_common = purrr::map_dbl(
+      .x = summary_TCT_common,
+      .f = "gamma_common_se"
+    )
+  )
+
+# Two versions of the simulation results are saved. First, a version containing
+# all information, except the original simulated data. The latter cannot be
+# included as the file size would be extremely large. This data set can be used
+# to reproduce all results, starting from the fitted MMRM models. Second, a lean
+# version of the simulation results that will be used for further processing. In
+# the latter data set, only necessary information for processing is included.
+results_lean_tbl = results_tbl %>%
+  select(-vcov_mmrm, -coef_mmrm, -TCT_meta_fit, -summary_TCT_common)
+
+saveRDS(object = results_tbl, file = "results_simulation_full.rds")
+saveRDS(object = results_lean_tbl, file = "results_simulation_lean.rds")
 
 print(Sys.time() - a)
-
-file_path = paste0(save_to, "/results_df-08-03.rds")
-saveRDS(object = results_df, file = file_path)
-print(file_path)
 
