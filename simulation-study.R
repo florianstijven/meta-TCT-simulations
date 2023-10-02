@@ -181,6 +181,8 @@ print("Data Simulations Done")
 registerDoParallel(cores=ncores)
 
 # Fit the MMRM model for each generated data set.
+results_tbl = simulated_data_tbl %>%
+  select(-trial_data)
 results_tbl$mmrm_fit = plyr::llply(
   .data = simulated_data_tbl$trial_data,
   .fun = analyze_mmrm_new,
