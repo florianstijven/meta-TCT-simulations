@@ -174,6 +174,8 @@ simulated_data_tbl = simulated_data_tbl %>%
   ))) %>%
   ungroup()
 
+print("Data Simulations Done")
+
 # In what follows, we we use parallel computing. Note that we use functions for
 # parallel computing that DO NOT work on Windows. 
 registerDoParallel(cores=ncores)
@@ -188,6 +190,9 @@ results_tbl = simulated_data_tbl %>%
       .parallel = TRUE
     )
   )
+
+print("MMRMs fitted")
+
 # We now no longer need `simulated_data_tbl`. To free up space, the object
 # containing the simulated data is removed.
 rm("simulated_data_tbl")
@@ -279,6 +284,8 @@ attr(results_tbl$TCT_meta_fit, "split_type") = NULL
 attr(results_tbl$TCT_meta_fit, "split_labels") = NULL
 str(attributes(results_tbl$TCT_meta_fit))
 
+print("meta-TCT finished")
+
 
 # Estimate common acceleration factor.
 results_tbl = results_tbl %>%
@@ -316,6 +323,8 @@ results_tbl = results_tbl %>%
       .parallel = TRUE 
     )
   )
+
+print("Common acceleration factors estimated")
 
 #Compute the confidence intervals and p-values.
 results_tbl = results_tbl %>%
