@@ -186,7 +186,7 @@ print("Data Simulations Done")
 cl = parallel::makeCluster(ncores)
 parallel::clusterEvalQ(cl, options(RENV_CONFIG_SANDBOX_ENABLED = FALSE))
 results_tbl = simulated_data_tbl %>%
-  mutate(mmrm_fit = parallel::parLapply(
+  mutate(mmrm_fit = parallel::parLapplyLB(
     cl = cl,
     X = simulated_data_tbl$trial_data,
     fun = analyze_mmrm_new,
@@ -326,13 +326,15 @@ results_tbl$TCT_meta_common_fit = parallel::clusterMap(
   RECYCLE = FALSE,
   .scheduling = "dynamic"
 )
+print(Sys.time() - a)
+print("meta-TCT-common finished")
 
 # Compute confidence intervals and p-values. First, we need to call the summary
 # method on the object returned by TCT_meta_common(). This method computes the
 # p-value and confidence intervals. Because this can take some time (confidence
 # intervals are computed numerically), we first save the summary-object to the
 # tibble.
-results_tbl$summary_TCT_common = parallel::parLapply(cl = cl,
+results_tbl$summary_TCT_common = parallel::parLapplyLB(cl = cl,
                                                      X = results_tbl$TCT_meta_common_fit,
                                                      fun = summary)
 parallel::stopCluster(cl)
