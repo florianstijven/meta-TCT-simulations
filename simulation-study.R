@@ -29,8 +29,8 @@ ref_means_list = list(
 )
 
 # In the settings data frame, we define all settings for which we will generate
-# data. We consider all possible combinations of trial settings. In total, there
-# are 48 different settings. 
+# data. We consider all possible combinations of trial settings, except settings
+# with extremely large or small power. 
 settings = tidyr::expand_grid(
   progression = c("normal", "fast"),
   gamma_slowing = c(1, 0.75, 0.5),
@@ -39,10 +39,16 @@ settings = tidyr::expand_grid(
     c(0, 6, 12, 18, 24),
     c(0, 6, 12, 18, 24, 36)
   )
-)
+) %>%
+  # Exclude scenario with power almost equal to 1.
+  filter(!(n == 1000 & gamma_slowing == 0.5)) %>%
+  # Exclude scenario with very small power.
+  filter(!(n == 50 & gamma_slowing == 0.75)) %>%
+  # Exclude additional "less interesting" scenario to limit computational load.
+  filter(!(n %in% c(200, 1000) & length(unlist(time_points) == 6)))
 
 # Number of independent replications for each setting.
-N_trials = 1
+N_trials = 5
 # Set the seed for reproducibility.
 set.seed(1)
 
@@ -235,7 +241,7 @@ results_tbl = results_tbl %>%
     tidyr::expand_grid(
       drop_first_occasions = 0:2,
       constraints = c(TRUE, FALSE),
-      interpolation = c("spline", "linear"),
+      interpolation = c("spline"),
       inference = c("wald", "score", "least-squares")
     ) %>%
       # We do not consider pre-selected measurement occasions if we adaptively
@@ -245,6 +251,9 @@ results_tbl = results_tbl %>%
         drop_first_occasions > 0 & inference == "score"
       ))
   ) %>%
+  # Do not consider re-estimation under constraints for n = 1000 as violations
+  # of the constraints are extremely unlikely for large sample sizes.
+  filter(!(constraints & n == 1000)) %>%
   mutate(TCT_meta_fit = parallel::clusterMap(
     cl = cl,
     coef_mmrm = coef_mmrm,
