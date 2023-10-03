@@ -1,5 +1,6 @@
 #!/usr/bin/env Rscript
 .libPaths()
+options(RENV_CONFIG_SANDBOX_ENABLED = FALSE)
 args = commandArgs(trailingOnly=TRUE)
 print(args)
 Sys.setenv(TZ='Europe/Brussels')
@@ -10,7 +11,6 @@ renv::restore()
 library(TCT)
 library(mmrm)
 library(dplyr)
-library(doParallel)
 a = Sys.time()
 # Variance-Covariance matrix as reported by Raket (2022, doi: 10.1002/sim.9581) in
 # section 5.1.
@@ -237,7 +237,7 @@ results_tbl = results_tbl %>%
 
 # Apply meta-TCT methodology.
 cl = parallel::makeCluster(ncores)
-clusterEvalQ(cl, library(TCT))
+parallel::clusterEvalQ(cl, library(TCT))
 results_tbl = results_tbl %>%
   # We first add additional columns that specify the inference options.
   cross_join(
@@ -277,7 +277,7 @@ results_tbl = results_tbl %>%
         ctrl_estimates = coef_mmrm[c(2 * K - 1, 1:(K - 1))],
         vcov = vcov_mmrm,
         interpolation = interpolation,
-        inference = "score",
+        inference = "wald",
         B = 0,
         constraints = constraints
       )
@@ -288,6 +288,7 @@ attr(results_tbl$TCT_meta_fit, "split_type") = NULL
 attr(results_tbl$TCT_meta_fit, "split_labels") = NULL
 str(attributes(results_tbl$TCT_meta_fit))
 
+print(Sys.time() - a)
 print("meta-TCT finished")
 
 
@@ -322,7 +323,6 @@ results_tbl = results_tbl %>%
 # p-value and confidence intervals. Because this can take some time (confidence
 # intervals are computed numerically), we first save the summary-object to the
 # tibble.
-clusterEvalQ(cl, library(TCT))
 results_tbl = results_tbl %>%
   mutate(
     summary_TCT_common = parallel::parLapply(
