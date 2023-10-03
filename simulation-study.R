@@ -1,6 +1,5 @@
 #!/usr/bin/env Rscript
 .libPaths()
-options(RENV_CONFIG_SANDBOX_ENABLED = FALSE)
 args = commandArgs(trailingOnly=TRUE)
 print(args)
 Sys.setenv(TZ='Europe/Brussels')
@@ -185,6 +184,7 @@ print("Data Simulations Done")
 
 # Fit the MMRM model for each generated data set.
 cl = parallel::makeCluster(ncores)
+parallel::clusterEvalQ(cl, options(RENV_CONFIG_SANDBOX_ENABLED = FALSE))
 results_tbl = simulated_data_tbl %>%
   mutate(mmrm_fit = parallel::parLapply(
     cl = cl,
@@ -237,6 +237,7 @@ results_tbl = results_tbl %>%
 
 # Apply meta-TCT methodology.
 cl = parallel::makeCluster(ncores)
+parallel::clusterEvalQ(cl, options(RENV_CONFIG_SANDBOX_ENABLED = FALSE))
 parallel::clusterEvalQ(cl, library(TCT))
 results_tbl = results_tbl %>%
   # We first add additional columns that specify the inference options.
@@ -256,33 +257,38 @@ results_tbl = results_tbl %>%
   ) %>%
   # Do not consider re-estimation under constraints for n = 1000 as violations
   # of the constraints are extremely unlikely for large sample sizes.
-  filter(!(constraints & n == 1000)) %>%
-  mutate(TCT_meta_fit = parallel::clusterMap(
-    cl = cl,
-    coef_mmrm = coef_mmrm,
-    vcov_mmrm = vcov_mmrm,
-    constraints = constraints,
-    interpolation = interpolation,
-    K = K, 
-    time_points = time_points,
-    fun = function(coef_mmrm,
-                   vcov_mmrm,
-                   constraints,
-                   interpolation,
-                   K,
-                   time_points) {
-      TCT_meta(
-        time_points = time_points,
-        exp_estimates = coef_mmrm[K:(2 * K - 2)],
-        ctrl_estimates = coef_mmrm[c(2 * K - 1, 1:(K - 1))],
-        vcov = vcov_mmrm,
-        interpolation = interpolation,
-        inference = "wald",
-        B = 0,
-        constraints = constraints
-      )
-    }
-  ))
+  filter(!(constraints & n == 1000))
+
+results_tbl$TCT_meta_fit = parallel::clusterMap(
+  cl = cl,
+  coef_mmrm = results_tbl$coef_mmrm,
+  vcov_mmrm = results_tbl$vcov_mmrm,
+  constraints = results_tbl$constraints,
+  interpolation = results_tbl$interpolation,
+  K = results_tbl$K,
+  time_points = results_tbl$time_points,
+  fun = function(coef_mmrm,
+                 vcov_mmrm,
+                 constraints,
+                 interpolation,
+                 K,
+                 time_points) {
+    TCT_meta(
+      time_points = time_points,
+      exp_estimates = coef_mmrm[K:(2 * K - 2)],
+      ctrl_estimates = coef_mmrm[c(2 * K - 1, 1:(K - 1))],
+      vcov = vcov_mmrm,
+      interpolation = interpolation,
+      inference = "wald",
+      B = 0,
+      constraints = constraints
+    )
+  },
+  SIMPLIFY = FALSE,
+  USE.NAMES = TRUE,
+  RECYCLE = FALSE,
+  .scheduling = "static"
+)
 
 attr(results_tbl$TCT_meta_fit, "split_type") = NULL
 attr(results_tbl$TCT_meta_fit, "split_labels") = NULL
@@ -293,44 +299,42 @@ print("meta-TCT finished")
 
 
 # Estimate common acceleration factor.
-results_tbl = results_tbl %>%
-  mutate(TCT_meta_fit = parallel::clusterMap(
-    cl = cl,
-    TCT_meta_fit = TCT_meta_fit,
-    drop_first_occasions = drop_first_occasions,
-    inference = inference,
-    constraints = constraints,
-    fun = function(TCT_meta_fit,
-                   drop_first_occasions,
-                   inference,
-                   constraints) {
-      type = NULL
-      if (inference == "score")
-        type = "custom"
-      TCT_meta_common(
-        TCT_Fit = TCT_meta_fit,
-        inference = inference,
-        B = 0,
-        select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit)),
-        constraints = constraints,
-        type = type
-      )
-    }
-  ))
+results_tbl$TCT_meta_common_fit = parallel::clusterMap(
+  cl = cl,
+  TCT_meta_fit = results_tbl$TCT_meta_fit,
+  drop_first_occasions = results_tbl$drop_first_occasions,
+  inference = results_tbl$inference,
+  constraints = results_tbl$constraints,
+  fun = function(TCT_meta_fit,
+                 drop_first_occasions,
+                 inference,
+                 constraints) {
+    type = NULL
+    if (inference == "score")
+      type = "custom"
+    TCT_meta_common(
+      TCT_Fit = TCT_meta_fit,
+      inference = inference,
+      B = 0,
+      select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit)),
+      constraints = constraints,
+      type = type
+    )
+  },
+  SIMPLIFY = FALSE,
+  USE.NAMES = TRUE,
+  RECYCLE = FALSE,
+  .scheduling = "static"
+)
 
 # Compute confidence intervals and p-values. First, we need to call the summary
 # method on the object returned by TCT_meta_common(). This method computes the
 # p-value and confidence intervals. Because this can take some time (confidence
 # intervals are computed numerically), we first save the summary-object to the
 # tibble.
-results_tbl = results_tbl %>%
-  mutate(
-    summary_TCT_common = parallel::parLapply(
-      cl = cl,
-      X = TCT_meta_fit,
-      fun = summary
-    )
-  )
+results_tbl$summary_TCT_common = parallel::parLapply(cl = cl,
+                                                     X = results_tbl$TCT_meta_common_fit,
+                                                     fun = summary)
 parallel::stopCluster(cl)
 
 print("Common acceleration factors estimated")
