@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 .libPaths()
 args = commandArgs(trailingOnly=TRUE)
-options(RENV_CONFIG_SANDBOX_ENABLED = FALSE)
+# options(RENV_CONFIG_SANDBOX_ENABLED = FALSE)
 print(args)
 Sys.setenv(TZ='Europe/Brussels')
 ncores = as.integer(args[1])
@@ -48,7 +48,7 @@ settings = tidyr::expand_grid(
   filter(!(n %in% c(200, 1000) & length(unlist(time_points) == 6)))
 
 # Number of independent replications for each setting.
-N_trials = 1
+N_trials = 5
 # Set the seed for reproducibility.
 set.seed(1)
 
