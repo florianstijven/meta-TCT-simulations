@@ -48,7 +48,7 @@ settings = tidyr::expand_grid(
   filter(!(n %in% c(200, 1000) & length(unlist(time_points) == 6)))
 
 # Number of independent replications for each setting.
-N_trials = 10
+N_trials = 1
 # Set the seed for reproducibility.
 set.seed(1)
 
