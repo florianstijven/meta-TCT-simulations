@@ -287,7 +287,7 @@ results_tbl$TCT_meta_fit = parallel::clusterMap(
   SIMPLIFY = FALSE,
   USE.NAMES = TRUE,
   RECYCLE = FALSE,
-  .scheduling = "static"
+  .scheduling = "dynamic"
 )
 
 attr(results_tbl$TCT_meta_fit, "split_type") = NULL
@@ -324,7 +324,7 @@ results_tbl$TCT_meta_common_fit = parallel::clusterMap(
   SIMPLIFY = FALSE,
   USE.NAMES = TRUE,
   RECYCLE = FALSE,
-  .scheduling = "static"
+  .scheduling = "dynamic"
 )
 
 # Compute confidence intervals and p-values. First, we need to call the summary
