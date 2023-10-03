@@ -1,6 +1,7 @@
 #!/usr/bin/env Rscript
 .libPaths()
 args = commandArgs(trailingOnly=TRUE)
+options(RENV_CONFIG_SANDBOX_ENABLED = FALSE)
 print(args)
 Sys.setenv(TZ='Europe/Brussels')
 ncores = as.integer(args[1])
@@ -47,7 +48,7 @@ settings = tidyr::expand_grid(
   filter(!(n %in% c(200, 1000) & length(unlist(time_points) == 6)))
 
 # Number of independent replications for each setting.
-N_trials = 10
+N_trials = 1
 # Set the seed for reproducibility.
 set.seed(1)
 
@@ -184,7 +185,8 @@ print("Data Simulations Done")
 
 # Fit the MMRM model for each generated data set.
 cl = parallel::makeCluster(ncores)
-parallel::clusterEvalQ(cl, options(RENV_CONFIG_SANDBOX_ENABLED = FALSE))
+parallel::clusterEvalQ(cl, renv::restore())
+parallel::clusterEvalQ(cl, library(TCT))
 results_tbl = simulated_data_tbl %>%
   mutate(mmrm_fit = parallel::parLapplyLB(
     cl = cl,
@@ -192,7 +194,6 @@ results_tbl = simulated_data_tbl %>%
     fun = analyze_mmrm_new,
     type = "FULL"
   ))
-parallel::stopCluster(cl)
 
 print(Sys.time() - a)
 print("MMRMs fitted")
@@ -236,9 +237,6 @@ results_tbl = results_tbl %>%
   select(-trial_data, -mmrm_fit)
 
 # Apply meta-TCT methodology.
-cl = parallel::makeCluster(ncores)
-parallel::clusterEvalQ(cl, options(RENV_CONFIG_SANDBOX_ENABLED = FALSE))
-parallel::clusterEvalQ(cl, library(TCT))
 results_tbl = results_tbl %>%
   # We first add additional columns that specify the inference options.
   cross_join(
@@ -337,7 +335,6 @@ print("meta-TCT-common finished")
 results_tbl$summary_TCT_common = parallel::parLapplyLB(cl = cl,
                                                      X = results_tbl$TCT_meta_common_fit,
                                                      fun = summary)
-parallel::stopCluster(cl)
 
 print("Common acceleration factors estimated")
 
