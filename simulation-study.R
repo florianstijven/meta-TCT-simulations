@@ -48,7 +48,7 @@ settings = tidyr::expand_grid(
   filter(!(n %in% c(200, 1000) & length(unlist(time_points) == 6)))
 
 # Number of independent replications for each setting.
-N_trials = 2
+N_trials = 1
 # Set the seed for reproducibility.
 set.seed(1)
 
@@ -237,6 +237,7 @@ results_tbl = results_tbl %>%
 
 # Apply meta-TCT methodology.
 cl = parallel::makeCluster(ncores)
+clusterEvalQ(cl, library(TCT))
 results_tbl = results_tbl %>%
   # We first add additional columns that specify the inference options.
   cross_join(
@@ -270,7 +271,7 @@ results_tbl = results_tbl %>%
                    interpolation,
                    K,
                    time_points) {
-      TCT::TCT_meta(
+      TCT_meta(
         time_points = time_points,
         exp_estimates = coef_mmrm[K:(2 * K - 2)],
         ctrl_estimates = coef_mmrm[c(2 * K - 1, 1:(K - 1))],
@@ -282,7 +283,6 @@ results_tbl = results_tbl %>%
       )
     }
   ))
-parallel::stopCluster(cl)
 
 attr(results_tbl$TCT_meta_fit, "split_type") = NULL
 attr(results_tbl$TCT_meta_fit, "split_labels") = NULL
@@ -292,7 +292,6 @@ print("meta-TCT finished")
 
 
 # Estimate common acceleration factor.
-cl = parallel::makeCluster(ncores)
 results_tbl = results_tbl %>%
   mutate(TCT_meta_fit = parallel::clusterMap(
     cl = cl,
@@ -307,7 +306,7 @@ results_tbl = results_tbl %>%
       type = NULL
       if (inference == "score")
         type = "custom"
-      TCT::TCT_meta_common(
+      TCT_meta_common(
         TCT_Fit = TCT_meta_fit,
         inference = inference,
         B = 0,
@@ -317,14 +316,13 @@ results_tbl = results_tbl %>%
       )
     }
   ))
-parallel::stopCluster(cl)
 
 # Compute confidence intervals and p-values. First, we need to call the summary
 # method on the object returned by TCT_meta_common(). This method computes the
 # p-value and confidence intervals. Because this can take some time (confidence
 # intervals are computed numerically), we first save the summary-object to the
 # tibble.
-cl = parallel::makeCluster(ncores)
+clusterEvalQ(cl, library(TCT))
 results_tbl = results_tbl %>%
   mutate(
     summary_TCT_common = parallel::parLapply(
