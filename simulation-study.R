@@ -192,6 +192,7 @@ results_tbl = simulated_data_tbl %>%
     fun = analyze_mmrm_new,
     type = "FULL"
   ))
+parallel::stopCluster(cl)
 
 print(Sys.time() - a)
 print("MMRMs fitted")
@@ -235,6 +236,7 @@ results_tbl = results_tbl %>%
   select(-trial_data, -mmrm_fit)
 
 # Apply meta-TCT methodology.
+cl = parallel::makeCluster(ncores)
 results_tbl = results_tbl %>%
   # We first add additional columns that specify the inference options.
   cross_join(
@@ -280,6 +282,7 @@ results_tbl = results_tbl %>%
       )
     }
   ))
+parallel::stopCluster(cl)
 
 attr(results_tbl$TCT_meta_fit, "split_type") = NULL
 attr(results_tbl$TCT_meta_fit, "split_labels") = NULL
@@ -289,6 +292,7 @@ print("meta-TCT finished")
 
 
 # Estimate common acceleration factor.
+cl = parallel::makeCluster(ncores)
 results_tbl = results_tbl %>%
   mutate(TCT_meta_fit = parallel::clusterMap(
     cl = cl,
@@ -313,12 +317,14 @@ results_tbl = results_tbl %>%
       )
     }
   ))
+parallel::stopCluster(cl)
 
 # Compute confidence intervals and p-values. First, we need to call the summary
 # method on the object returned by TCT_meta_common(). This method computes the
 # p-value and confidence intervals. Because this can take some time (confidence
 # intervals are computed numerically), we first save the summary-object to the
 # tibble.
+cl = parallel::makeCluster(ncores)
 results_tbl = results_tbl %>%
   mutate(
     summary_TCT_common = parallel::parLapply(
@@ -327,6 +333,7 @@ results_tbl = results_tbl %>%
       fun = summary
     )
   )
+parallel::stopCluster(cl)
 
 print("Common acceleration factors estimated")
 

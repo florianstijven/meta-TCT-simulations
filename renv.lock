@@ -581,17 +581,6 @@
       ],
       "Hash": "903d68319ae9923fb2e2ee7fa8230b91"
     },
-    "plyr": {
-      "Package": "plyr",
-      "Version": "1.8.8",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "R",
-        "Rcpp"
-      ],
-      "Hash": "d744387aef9047b0b48be2933d78e862"
-    },
     "praise": {
       "Package": "praise",
       "Version": "1.0.0",
