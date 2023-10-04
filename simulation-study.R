@@ -185,7 +185,6 @@ print("Data Simulations Done")
 
 # Fit the MMRM model for each generated data set.
 cl = parallel::makeCluster(ncores)
-parallel::clusterEvalQ(cl, renv::restore())
 parallel::clusterEvalQ(cl, library(TCT))
 results_tbl = simulated_data_tbl %>%
   mutate(mmrm_fit = parallel::parLapplyLB(
