@@ -48,9 +48,11 @@ settings = tidyr::expand_grid(
   filter(!(n %in% c(200, 1000) & length(unlist(time_points) == 6)))
 
 # Number of independent replications for each setting.
-N_trials = 100
+N_trials = 10
 # Set the seed for reproducibility.
 set.seed(1)
+# Number of bootstrap replications for the Wald-based methods.
+n_replicates_bootstrap = 1e3
 
 #-----
 # We next define a set of helper functions. 
@@ -274,7 +276,7 @@ results_tbl$TCT_meta_fit = parallel::clusterMap(
       time_points = time_points,
       exp_estimates = coef_mmrm[K:(2 * K - 2)],
       ctrl_estimates = coef_mmrm[c(2 * K - 1, 1:(K - 1))],
-      vcov = vcov_mmrm,
+      vcov = vcov_mmrm[c(2 * K - 1, 1:(K - 1), K:(2 * K - 2)), c(2 * K - 1, 1:(K - 1), K:(2 * K - 2))],
       interpolation = interpolation,
       inference = "wald",
       B = 0,
@@ -309,10 +311,12 @@ results_tbl$TCT_meta_common_fit = parallel::clusterMap(
     type = NULL
     if (inference == "score")
       type = "custom"
+    if (inference == "wald")
+      B = n_replicates_bootstrap
     TCT_meta_common(
       TCT_Fit = TCT_meta_fit,
       inference = inference,
-      B = 0,
+      B = B,
       select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit)),
       constraints = constraints,
       type = type
