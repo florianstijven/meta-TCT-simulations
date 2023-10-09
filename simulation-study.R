@@ -35,24 +35,26 @@ settings = tidyr::expand_grid(
   progression = c("normal", "fast"),
   gamma_slowing = c(1, 0.75, 0.5),
   n = c(50, 200, 500, 1000),
-  time_points = list(
-    c(0, 6, 12, 18, 24),
-    c(0, 6, 12, 18, 24, 36)
-  )
+  time_points = list(c(0, 6, 12, 18, 24),
+                     c(0, 6, 12, 18, 24, 36))
 ) %>%
   # Exclude scenario with power almost equal to 1.
   filter(!(n == 1000 & gamma_slowing == 0.5)) %>%
   # Exclude scenario with very small power.
   filter(!(n == 50 & gamma_slowing == 0.75)) %>%
   # Exclude additional "less interesting" scenario to limit computational load.
-  filter(!(n %in% c(200, 1000) & length(unlist(time_points) == 6)))
+  filter(!(
+    n %in% c(200, 1000) & purrr::map_lgl(
+      .x = time_points,
+      .f = function(x)
+        length(x) == 6
+    )
+  ))
 
 # Number of independent replications for each setting.
-N_trials = 10
+N_trials = 100
 # Set the seed for reproducibility.
 set.seed(1)
-# Number of bootstrap replications for the Wald-based methods.
-n_replicates_bootstrap = 1e3
 
 #-----
 # We next define a set of helper functions. 
@@ -311,12 +313,10 @@ results_tbl$TCT_meta_common_fit = parallel::clusterMap(
     type = NULL
     if (inference == "score")
       type = "custom"
-    if (inference == "wald")
-      B = n_replicates_bootstrap
     TCT_meta_common(
       TCT_Fit = TCT_meta_fit,
       inference = inference,
-      B = B,
+      B = 0,
       select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit)),
       constraints = constraints,
       type = type

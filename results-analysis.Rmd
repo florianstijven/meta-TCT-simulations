@@ -6,25 +6,104 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+# Set markdown options
 knitr::opts_chunk$set(echo = TRUE)
+# Load libraries that will be used further on.
+library(ggplot2)
+library(dplyr)
+library(TCT)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+# Read data set with results of simulation study.
+results_tbl = readRDS(file = "results_simulation_lean.rds")
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+# Compute power/type 1 error.
+results_tbl %>%
+  group_by(progression, gamma_slowing, n, K, drop_first_occasions, constraints, inference) %>%
+  summarise(rejection_rate = mean(p_value_TCT_common < 0.05)) %>%
+  filter(gamma_slowing == 1)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+results_tbl %>%
+  group_by(progression,
+           gamma_slowing,
+           n,
+           K,
+           drop_first_occasions,
+           constraints,
+           inference) %>%
+  filter(
+    gamma_slowing == 1,
+    n == 500,
+    K == 6,
+    constraints == TRUE,
+    drop_first_occasions == 0
+  ) %>%
+  rowwise() %>%
+  summarise(estimate = TCT_meta_common_fit$coefficients) %>%
+  ggplot(aes(x = estimate)) +
+  geom_histogram() +
+  facet_grid(inference~progression)
+
+results_tbl %>%
+  group_by(progression,
+           gamma_slowing,
+           n,
+           K,
+           drop_first_occasions,
+           constraints,
+           inference) %>%
+  rowwise() %>%
+  summarise(estimate = TCT_meta_common_fit$coefficients) %>%
+  group_by(progression,
+           gamma_slowing,
+           n,
+           K,
+           drop_first_occasions,
+           constraints,
+           inference) %>%
+  summarise(mean = mean(estimate))
+
+results_tbl %>%
+  mutate(lower_conf_int = purrr::map_dbl(.x = conf_int_TCT_common, .f = 1),
+         upper_conf_int = purrr::map_dbl(.x = conf_int_TCT_common, .f = 2)) %>%
+  mutate(covered = (gamma_slowing <= upper_conf_int) & (gamma_slowing >= lower_conf_int)) %>%
+  rowwise("progression",
+           "gamma_slowing",
+           "n",
+           "K",
+           "drop_first_occasions",
+           "constraints",
+           "inference", 
+          "covered", 
+          "se_TCT_common") %>%
+  summarise(estimate = TCT_meta_common_fit$coefficients) %>%
+  ungroup() %>%
+  filter(n == 500) %>%
+  group_by(progression,
+           gamma_slowing,
+           n,
+           K,
+           drop_first_occasions,
+           constraints,
+           inference) %>%
+  summarise(coverage = mean(covered),
+            n_replicates = n(),
+            mean = mean(estimate),
+            emp_sd = sd(estimate),
+            mean_se = mean(se_TCT_common))
+```
+
+```{r}
+t = summary(results_tbl$TCT_meta_common_fit[[3]])
+results_tbl$TCT_meta_common_fit[[3]]$coefficients
+t$p_value
+```
+
+
+
+
