@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 .libPaths()
 args = commandArgs(trailingOnly=TRUE)
-# options(RENV_CONFIG_SANDBOX_ENABLED = FALSE)
+options(RENV_CONFIG_SANDBOX_ENABLED = FALSE)
 print(args)
 Sys.setenv(TZ='Europe/Brussels')
 ncores = as.integer(args[1])
