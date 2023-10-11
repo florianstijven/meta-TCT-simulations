@@ -5,6 +5,7 @@ options(RENV_CONFIG_SANDBOX_ENABLED = FALSE)
 print(args)
 Sys.setenv(TZ='Europe/Brussels')
 ncores = as.integer(args[1])
+print(version)
 # Ensure to the state of packages is up-to-date.
 renv::restore()
 # Load the required packages. 
