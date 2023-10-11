@@ -53,7 +53,7 @@ settings = tidyr::expand_grid(
   ))
 
 # Number of independent replications for each setting.
-N_trials = 100
+N_trials = 300
 # Set the seed for reproducibility.
 set.seed(1)
 
