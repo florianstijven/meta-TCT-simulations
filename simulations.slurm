@@ -8,6 +8,7 @@
 #SBATCH -A lp_doctoralresearch
 
 module load R
+export OMP_NUM_THREADS=1
 
 Rscript simulation-study.R 35
 
