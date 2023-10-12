@@ -30,27 +30,14 @@ ref_means_list = list(
 )
 
 # In the settings data frame, we define all settings for which we will generate
-# data. We consider all possible combinations of trial settings, except settings
-# with extremely large or small power. 
+# data. We consider all possible combinations of trial settings. 
 settings = tidyr::expand_grid(
   progression = c("normal", "fast"),
   gamma_slowing = c(1, 0.75, 0.5),
   n = c(50, 200, 500, 1000),
   time_points = list(c(0, 6, 12, 18, 24),
                      c(0, 6, 12, 18, 24, 36))
-) %>%
-  # Exclude scenario with power almost equal to 1.
-  filter(!(n == 1000 & gamma_slowing == 0.5)) %>%
-  # Exclude scenario with very small power.
-  filter(!(n == 50 & gamma_slowing == 0.75)) %>%
-  # Exclude additional "less interesting" scenario to limit computational load.
-  filter(!(
-    n %in% c(200, 1000) & purrr::map_lgl(
-      .x = time_points,
-      .f = function(x)
-        length(x) == 6
-    )
-  ))
+) 
 
 # Number of independent replications for each setting.
 N_trials = 300
