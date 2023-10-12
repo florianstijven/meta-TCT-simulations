@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #SBATCH --job-name=meta-TCT-simulations
-#SBATCH --ntasks=1 --cpus-per-task=72 --mem-per-cpu=5000M
+#SBATCH --ntasks=1 --cpus-per-task=72
 #SBATCH --time=00:20:00
 #SBATCH --cluster=wice
 #SBATCH --mail-type=BEGIN,END,FAIL
