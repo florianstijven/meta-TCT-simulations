@@ -243,10 +243,7 @@ results_tbl = results_tbl %>%
       filter(!(
         drop_first_occasions > 0 & inference == "score"
       ))
-  ) %>%
-  # Do not consider re-estimation under constraints for n = 1000 as violations
-  # of the constraints are extremely unlikely for large sample sizes.
-  filter(!(constraints & n == 1000))
+  )
 
 results_tbl$TCT_meta_fit = parallel::clusterMap(
   cl = cl,
