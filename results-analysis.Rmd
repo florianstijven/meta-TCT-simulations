@@ -236,7 +236,7 @@ results_tbl = readRDS(file = "results_simulation_lean.rds") %>%
 
 ```{r}
 # Compute all summary measures regarding the performance of the estimators.
-results_tbl_estimation= results_tbl %>%
+results_tbl_estimation = results_tbl %>%
   # Group by all simulation scenarios.
   group_by(progression, gamma_slowing, n, K, drop_first_occasions, constraints, inference) %>%
   summarise(mean_estimate = mean(estimate),
@@ -248,11 +248,9 @@ results_tbl_estimation= results_tbl %>%
 
 In Figure X, we present the results regarding estimation across all scenarios.
 
-
-
-```{r expected-value-estimator, fig.cap = "Graph of estimted expected value of the estimator for the common accleration factor across all simulation settings."}
+```{r expected-value-estimator, fig.cap = "Graph of estimated expected value of the estimator for the common accleration factor across all simulation settings."}
 results_tbl_estimation %>%
-  filter(constraints == FALSE, inference == "least-squares") %>%
+  filter(constraints == TRUE, inference == "least-squares") %>%
   ggplot(aes(x = n, y = mean_estimate, color = `Follow Up`, linetype = progression)) +
   geom_point() + 
   geom_line() + 
@@ -267,6 +265,39 @@ results_tbl_estimation %>%
   facet_grid(gamma_slowing~drop_first_occasions, scales = "free")
 ```
 
+```{r mse-estimator, fig.cap = "Graph of the means squared error of the estimator for the common accleration factor across all simulation settings."}
+results_tbl_estimation %>%
+  filter(constraints == TRUE, inference == "least-squares") %>%
+  ggplot(aes(x = n, y = mse, color = `Follow Up`, linetype = progression)) +
+  geom_point() + 
+  geom_line() +
+  scale_y_continuous(trans = "log10") +
+  scale_x_continuous(trans = "log10") +
+  facet_grid(gamma_slowing~drop_first_occasions, scales = "free")
+```
+
+```{r se-estimator, fig.cap = "Graph of the empirical standard deviations and the mean estimated standard error of the estimator for the common accleration factor across all simulation settings."}
+results_tbl_estimation %>%
+  filter(constraints == TRUE, inference == "least-squares") %>%
+  ggplot(aes(
+    x = n,
+    y = empirical_sd,
+    color = `Follow Up`,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+  geom_point(
+    data = results_tbl_estimation %>%
+      filter(constraints == TRUE, inference == "least-squares"),
+    mapping = aes(x = n, y = mean_se),
+    shape = 2
+  ) +
+  scale_y_continuous(trans = "log10") +
+  scale_x_continuous(trans = "log10") +
+  facet_grid(gamma_slowing ~ drop_first_occasions, scales = "free")
+```
+
 
 
 
@@ -275,88 +306,79 @@ results_tbl_estimation %>%
 
 
 ```{r}
-# Compute power/type 1 error.
-results_tbl %>%
+# Compute all summary measures regarding the performance of the estimators.
+results_tbl_inference = results_tbl %>%
+  # Group by all simulation scenarios.
   group_by(progression, gamma_slowing, n, K, drop_first_occasions, constraints, inference) %>%
-  summarise(rejection_rate = mean(p_value_TCT_common < 0.05))
+  summarise(mean_estimate = mean(estimate),
+            empirical_sd = sd(estimate),
+            mean_se = mean(se_TCT_common),
+            mse = mean((estimate - gamma_slowing)**2)) %>%
+  mutate("Follow Up" = ifelse(K == 6, "36 Months", "24 Months"))
 ```
 
 ```{r}
-results_tbl %>%
-  group_by(progression,
-           gamma_slowing,
-           n,
-           K,
-           drop_first_occasions,
-           constraints,
-           inference) %>%
-  filter(
-    gamma_slowing == 1,
-    n == 500,
-    K == 6,
-    constraints == TRUE,
-    drop_first_occasions == 0
-  ) %>%
-  rowwise() %>%
-  summarise(estimate = TCT_meta_common_fit$coefficients) %>%
-  ggplot(aes(x = estimate)) +
-  geom_histogram() +
-  facet_grid(inference~progression)
-
-results_tbl %>%
-  group_by(progression,
-           gamma_slowing,
-           n,
-           K,
-           drop_first_occasions,
-           constraints,
-           inference) %>%
-  rowwise() %>%
-  summarise(estimate = TCT_meta_common_fit$coefficients) %>%
-  group_by(progression,
-           gamma_slowing,
-           n,
-           K,
-           drop_first_occasions,
-           constraints,
-           inference) %>%
-  summarise(mean = mean(estimate))
-
-results_tbl %>%
+results_tbl_inference = results_tbl %>%
+  # Extract lower and upper 95% confidence limits into two new columns.
   mutate(lower_conf_int = purrr::map_dbl(.x = conf_int_TCT_common, .f = 1),
          upper_conf_int = purrr::map_dbl(.x = conf_int_TCT_common, .f = 2)) %>%
-  mutate(covered = (gamma_slowing <= upper_conf_int) & (gamma_slowing >= lower_conf_int)) %>%
-  rowwise("progression",
-           "gamma_slowing",
-           "n",
-           "K",
-           "drop_first_occasions",
-           "constraints",
-           "inference", 
-          "covered", 
-          "se_TCT_common") %>%
-  summarise(estimate = TCT_meta_common_fit$coefficients) %>%
-  ungroup() %>%
-  filter(n == 50) %>%
-  group_by(progression,
-           gamma_slowing,
-           n,
-           K,
-           drop_first_occasions,
-           constraints,
-           inference) %>%
-  summarise(coverage = mean(covered),
-            n_replicates = n(),
-            mean = mean(estimate),
-            emp_sd = sd(estimate),
-            mean_se = mean(se_TCT_common))
+  mutate(
+    # Determine whether the CI contain the true value.
+    covered = (gamma_slowing <= upper_conf_int) & (gamma_slowing >= lower_conf_int),
+    # Determine whether the null has been rejected
+    rejection = p_value_TCT_common <= 0.05,
+    rejection_mmrm = p_value_mmrm <= 0.05
+    ) %>%
+  group_by(progression, gamma_slowing, n, K, drop_first_occasions, constraints, inference) %>%
+  summarise(
+    coverage = mean(covered),
+    rejection_rate = mean(rejection),
+    rejection_rate_mmrm = mean(rejection_mmrm)) %>%
+  mutate("Follow Up" = ifelse(K == 6, "36 Months", "24 Months"))
 ```
 
 ```{r}
-t = summary(results_tbl$TCT_meta_common_fit[[3]])
-results_tbl$TCT_meta_common_fit[[3]]$coefficients
-t$p_value
+results_tbl_inference %>%
+  filter(constraints == TRUE, inference == "least-squares") %>%
+  ggplot(aes(
+    x = n,
+    y = rejection_rate,
+    color = `Follow Up`,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+  facet_grid(gamma_slowing ~ drop_first_occasions, scales = "free")
 ```
+
+```{r}
+results_tbl_inference %>%
+  filter(constraints == TRUE, inference == "least-squares") %>%
+  ggplot(aes(
+    x = n,
+    y = rejection_rate_mmrm,
+    color = `Follow Up`,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+  facet_grid(gamma_slowing ~ drop_first_occasions, scales = "free")
+```
+
+```{r}
+results_tbl_inference %>%
+  filter(constraints == TRUE, inference == "least-squares") %>%
+  ggplot(aes(
+    x = n,
+    y = coverage,
+    color = `Follow Up`,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+  facet_grid(gamma_slowing ~ drop_first_occasions, scales = "free")
+```
+
 
 
 
