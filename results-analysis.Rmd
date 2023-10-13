@@ -2,29 +2,283 @@
 title: "Results Simulation Study"
 author: "Florian Stijven"
 date: "`r Sys.Date()`"
-output: html_document
+output: bookdown::html_document2
+bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
-# Set markdown options
-knitr::opts_chunk$set(echo = TRUE)
+# Set global markdown options
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 # Load libraries that will be used further on.
 library(ggplot2)
 library(dplyr)
 library(TCT)
 ```
 
-```{r}
-# Read data set with results of simulation study.
-results_tbl = readRDS(file = "results_simulation_lean.rds")
+# Introduction
+
+In this Rmarkdown document, we analyze the results of the simulation study for
+assessing the finite sample properties of the meta TCT methods. The primary goal
+of this simulation study is to asses to what degree the theoretical asymptotic
+results translate to finite samples. The secondary goal is to assess the
+correctness of the implementation in the `TCT` R-package.
+
+All simulated data sets were generated from multivariate normal distributions 
+matching the data generating model (DGM) used by @raket_progression_2022 [Section 5.1].
+This DGM represents a realistic 36-months clinical trial in
+prodromal Alzheimer's disease. The control group is based on the analysis of a 
+selection[^1] of 556 patients from the Alzheimer's disease neuroimaging initiative 
+[@veitch2019understanding].
+
+[^1]: The following inclusing criteria were used by @raket_progression_2022: "at
+the baseline visit, patients must be diagnosed as having mild cognitive
+impairment, score less than or equal to 28 on the mini mental state examination
+(MMSE, range 30-0, higher scores indicate less impairment) and be amyloid
+positive according to a brain positron emission tomography scan or analysis of
+cerebrospinal fluid."
+
+We first present the DGM in more details together with a visualization of the
+relevant mean trajectories. Second, the analysis methods we consider in this
+simulation study are summarized. Finally, the simulation results are presented.
+
+# Data Generating Model
+
+For the 556 patients selected from the Alzheimer's disease neuroimaging initiative,
+the ADAS-cog scores were[^2] available at baseline visits and 6, 12, 18, 24, and 36
+months after baseline. The estimated means at the corresponding time points are
+$$(19.6, 20.5, 20.9, 22.7, 23.8, 27.4)'$$
+and the corresponding estimated covariance matrix is 
+$$\begin{pmatrix}
+45.1 & 40.0 & 45.1 & 54.9 & 53.6 & 60.8 \\
+40.0 & 57.8 & 54.4 & 66.3 & 64.1 & 74.7 \\
+45.1 & 54.4 & 72.0 & 80.0 & 77.6 & 93.1 \\
+54.9 & 66.3 & 80.0 & 109.8 & 99.3 & 121.7 \\
+53.6 & 64.1 & 77.6 & 99.3 & 111.4 & 127.8 \\
+60.8 & 74.7 & 93.1 & 121.7 & 127.8 & 191.4
+\end{pmatrix}.$$
+Patient-level data in the control group are generated from a multivariate normal
+distribution with the above mean vector and covariance matrix, as in 
+@raket_progression_2022 [Section 5.1]. Whereas @raket_progression_2022 considered
+multiple types of treatment effects, we only consider treatment effects that 
+correspond to proportional slowing. 
+
+To simulate proportional slowing, we first consider the reference trajectory,
+that is, the mean ADAS-cog score in the control group ($Z = 0$) as a function of
+time since baseline ($t$), $$f_{0}(t; \boldsymbol{\alpha}) = E(Y_{t} | Z = 0)$$
+where $Y_t$ is the ADAScog score $t$ months after baseline. This trajectory
+should be a continuous function defined for every time point in the relevant
+range, $[0, 36]$. Because we only have 6 mean estimates, at 6 distinct time
+points, we interpolate between these 6 points with natural cubic interpolation.
+This *interpolated* reference trajectory is given in Figure
+\@ref(fig:data-generating-model-visualization).
+
+[^2]: 13-item cognitive subscale of the Alzheimer’s disease assessment scale, 
+lower scores indicate less impairment [@rosen1984new]
+
+For simulating data from the treated group ($Z = 1$), we consider trajectories of the
+following form, $$E(Y_t | Z = 1) = f_0(\gamma \cdot t; \boldsymbol{\alpha}) $$
+where $\gamma$ is the proportional slowing factor. These data are simulated from
+a multivariate normal distribution with the means determined by the above
+trajectory function and with the same covariance matrix as in the control group.
+
+We consider a set of DGMs where the following elements are varied to represent
+a range of realistic scenarios:
+
+* **Progression Rate**. We consider a *normal* and *fast* progression rate. The 
+normal progression rate corresponds to the mean vector presented above. For the 
+fast progression rate, we change the mean vector in the control group to 
+$$(18.0, 19.7, 20.9, 22.7, 24.7, 29.2)'.$$ Alternatively, the fast progression 
+scenario could also be interpreted as corresponding to trials where patients have
+been followed up longer.
+* **Treatment Effect**. We consider 3 different (proportional slowing) treatment 
+effects, that is, $\gamma \in \{1, 0.75, 0.50 \}$.
+* **Sample Size**. We consider 4 different total sample sizes, $n \in \{50, 200, 500, 1000\}$.
+Note that $n$ is the total sample size, and we assume $1:1$ randomization in all settings.
+* **Duration of follow up**. We consider settings with 24 and 36 months of follow up, 
+corresponding to 5 and 6 measurements of the ADAScog score, respectively.
+
+```{r data-generating-model-visualization, fig.cap = "Plot of the trajectories used in the DGMs. A slowing factor equal to 1 corresponds to no treatment effect."}
+ref_means_list = list(
+  "Normal Progression" = c(19.6, 20.5, 20.9, 22.7, 23.8, 27.4),
+  "Fast Progression" = c(18, 19.7, 20.9, 22.7, 24.7, 29.2)
+)
+time_points = c(0, 6, 12, 18, 24, 36)
+time_grid = seq(from = 0,
+                to = 36,
+                length.out = 3000)
+dgm_settings = tidyr::expand_grid(
+  progression = c("Normal Progression", "Fast Progression"),
+  gamma_slowing = c(1, 0.75, 0.5),
+  time_points = list(time_points)
+)
+trajectory_observed_tbl = dgm_settings %>%
+  rowwise(everything()) %>%
+  summarise(ref_means = ref_means_list[progression],
+            trajectory_points = list(
+              spline(
+                x = time_points,
+                y = ref_means,
+                xout = gamma_slowing * unlist(time_points)
+              )$y
+            )) %>%
+  ungroup() %>%
+  mutate(treatment = ifelse(gamma_slowing == 1, "Control Treatment", "Active Treatment"))
+trajectory_observed_tbl = trajectory_observed_tbl %>%
+  rowwise(everything()) %>%
+  reframe(tibble(
+    trajectory_points = unlist(trajectory_points),
+    time_points = unlist(time_points)
+  )) %>%
+  ungroup() %>%
+  mutate(gamma_slowing = as.factor(gamma_slowing))
+
+trajectory_interpolated_tbl = dgm_settings %>%
+  rowwise(everything()) %>%
+  summarise(
+    ref_means = ref_means_list[progression],
+    trajectory_interpolated = list(
+      spline(
+        x = time_points,
+        y = ref_means,
+        xout = gamma_slowing * time_grid
+      )$y
+    ),
+    time_grid = list(time_grid)
+  ) %>%
+  ungroup() %>%
+  mutate(treatment = ifelse(gamma_slowing == 1, "Control Treatment", "Active Treatment"))
+trajectory_interpolated_tbl = trajectory_interpolated_tbl %>%
+  rowwise(everything()) %>%
+  reframe(tibble(
+    trajectory_interpolated = unlist(trajectory_interpolated),
+    time_grid = unlist(time_grid)
+  )) %>%
+  ungroup() %>%
+  mutate(gamma_slowing = as.factor(gamma_slowing))
+
+trajectory_observed_tbl %>%
+  ggplot(aes(x = time_points, y = trajectory_points)) +
+  geom_point(alpha = 0.25) +
+  geom_line(
+    data = trajectory_interpolated_tbl,
+    mapping = aes(
+      x = time_grid,
+      y = trajectory_interpolated,
+      group = interaction(gamma_slowing, treatment, progression),
+      color = gamma_slowing
+    )
+  ) +
+  scale_x_continuous(breaks = time_points) +
+  scale_color_discrete(type = "seq", name = latex2exp::TeX("Slowing Factor, \\gamma")) +
+  xlab("Months After Randomization") +
+  ylab("Mean Trajectory") +
+  facet_grid( ~ progression)
 ```
+
+# Analysis Methods
+
+In this section, two analysis methods are briefly outline. We first present the 
+mixed model for repeated measures (MMRM) that is fitted to the simulated data sets.
+Next, we discuss the meta TCT methods which use the fitted MMRM. 
+
+## Mixed Model for Repeated Measures
+
+For each simulated data set, a MMRM is fitted. This is a linear mixed model
+where time is treated as a categorical covariate. The **systematic part** consists
+of the interaction between treatment and time, except for $t = 0$ where we
+assume that the mean outcome is equal in both treatment groups. Let $j = 0, 1, ..., K$
+denote the measurement occasions, and $t_j$ the corresponding months after baseline.
+The mean outcome is then modeled as
+$$E(Y_{t_j} | Z = z) = \beta_{z, j} \; \forall \; j \in \{ 1, ..., K \}$$
+and $E(Y_{0} | Z = 0) = E(Y_{0} | Z = 1) = \beta_0$.
+This essentially
+means that we have a parameter for each measurement occasion-treatment
+combination, except for baseline. The **covariance matrix** is assumed to be
+unstructured, but common for both treatment groups.
+For all simulation scenarios, this is a correctly specified model. 
+
+These models are fitted using restricted maximum likelihood (REML) using the
+`mmrm()` function from the `mmrm` R-package [@mmrmpackage]. The parameter
+estimates and corresponding variance-covariance matrix are obtained by the
+`coef()` and `vcov()` methods. The hypothesis test for 
+$$H_0: \beta_{0, j} = \beta_{1, j} \; \forall \; j \in \{ 1, ..., K \} $$
+is based on the F-test with the Kenward-Roger approximate degrees of freedom.
+
+## Meta TCT
+
+TO DO
+
+# Results
+
+In this section, the results of the simulation study are presented. For each 
+setting, we considered $N$ replications. For estimating coverage of 95\% CIs and
+empirical type 1 errors, this leads to a standard error of $X$. 
+
+First, we present the results regarding estimation in terms of 
+
+
+
+Second, we look at operating characteristics of the inference procedures. These 
+also compared with inference based on the MMRM.
+
+```{r}
+# Read data set with results of the simulation study.
+results_tbl = readRDS(file = "results_simulation_lean.rds") %>%
+  # We also extract the estimated acceleration factor into a seperate column.
+  mutate(estimate = purrr::map_dbl(
+    .x = TCT_meta_common_fit,
+    .f = coef
+  ))
+```
+
+
+## Estimation
+
+```{r}
+# Compute all summary measures regarding the performance of the estimators.
+results_tbl_estimation= results_tbl %>%
+  # Group by all simulation scenarios.
+  group_by(progression, gamma_slowing, n, K, drop_first_occasions, constraints, inference) %>%
+  summarise(mean_estimate = mean(estimate),
+            empirical_sd = sd(estimate),
+            mean_se = mean(se_TCT_common),
+            mse = mean((estimate - gamma_slowing)**2)) %>%
+  mutate("Follow Up" = ifelse(K == 6, "36 Months", "24 Months"))
+```
+
+In Figure X, we present the results regarding estimation across all scenarios.
+
+
+
+```{r expected-value-estimator, fig.cap = "Graph of estimted expected value of the estimator for the common accleration factor across all simulation settings."}
+results_tbl_estimation %>%
+  filter(constraints == FALSE, inference == "least-squares") %>%
+  ggplot(aes(x = n, y = mean_estimate, color = `Follow Up`, linetype = progression)) +
+  geom_point() + 
+  geom_line() + 
+  geom_hline(
+    # Add horizontal lines to indicate the true values.
+    data = tidyr::expand_grid(gamma_slowing = c(0.5, 0.75, 1), 
+                              drop_first_occasions = 0:2),
+    mapping = aes(
+      yintercept = gamma_slowing
+    ),
+    alpha = 0.5) +
+  facet_grid(gamma_slowing~drop_first_occasions, scales = "free")
+```
+
+
+
+
+
+## Inference
+
 
 ```{r}
 # Compute power/type 1 error.
 results_tbl %>%
   group_by(progression, gamma_slowing, n, K, drop_first_occasions, constraints, inference) %>%
-  summarise(rejection_rate = mean(p_value_TCT_common < 0.05)) %>%
-  filter(gamma_slowing == 1)
+  summarise(rejection_rate = mean(p_value_TCT_common < 0.05))
 ```
 
 ```{r}
@@ -83,7 +337,7 @@ results_tbl %>%
           "se_TCT_common") %>%
   summarise(estimate = TCT_meta_common_fit$coefficients) %>%
   ungroup() %>%
-  filter(n == 500) %>%
+  filter(n == 50) %>%
   group_by(progression,
            gamma_slowing,
            n,
