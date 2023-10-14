@@ -1,0 +1,416 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{5}
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newlength{\cslentryspacingunit} % times entry-spacing
+\setlength{\cslentryspacingunit}{\parskip}
+\newenvironment{CSLReferences}[2] % #1 hanging-ident, #2 entry spacing
+ {% don't indent paragraphs
+  \setlength{\parindent}{0pt}
+  % turn on hanging indent if param 1 is 1
+  \ifodd #1
+  \let\oldpar\par
+  \def\par{\hangindent=\cslhangindent\oldpar}
+  \fi
+  % set entry spacing
+  \setlength{\parskip}{#2\cslentryspacingunit}
+ }%
+ {}
+\usepackage{calc}
+\newcommand{\CSLBlock}[1]{#1\hfill\break}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{#1}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{#1}\break}
+\newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Results Simulation Study},
+  pdfauthor={Florian Stijven},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Results Simulation Study}
+\author{Florian Stijven}
+\date{2023-10-14}
+
+\begin{document}
+\maketitle
+
+{
+\setcounter{tocdepth}{2}
+\tableofcontents
+}
+\hypertarget{introduction}{%
+\section{Introduction}\label{introduction}}
+
+In this Rmarkdown document, we analyze the results of the simulation study for
+assessing the finite sample properties of the meta TCT methods. The primary goal
+of this simulation study is to asses to what degree the theoretical asymptotic
+results translate to finite samples. The secondary goal is to identify finite
+sample settings where the meta TCT methods are not trustworthy. The tertiary
+goal is to assess the correctness of the implementation in the \texttt{TCT} R-package.
+
+All simulated data sets were generated from multivariate normal distributions
+matching the data generating model (DGM) used by Raket (2022, sec. 5.1).
+This DGM represents a realistic 36-months clinical trial in
+prodromal Alzheimer's disease. The control group is based on the analysis of a
+selection\footnote{The following inclusing criteria were used by Raket (2022): ``at
+  the baseline visit, patients must be diagnosed as having mild cognitive
+  impairment, score less than or equal to 28 on the mini mental state examination
+  (MMSE, range 30-0, higher scores indicate less impairment) and be amyloid
+  positive according to a brain positron emission tomography scan or analysis of
+  cerebrospinal fluid.''} of 556 patients from the Alzheimer's disease neuroimaging initiative
+(Veitch et al. 2019).
+
+We first present the DGM in more details together with a visualization of the
+relevant mean trajectories. Second, the analysis methods we consider in this
+simulation study are summarized. Finally, the simulation results are presented.
+
+\hypertarget{data-generating-model}{%
+\section{Data Generating Model}\label{data-generating-model}}
+
+For the 556 patients selected from the Alzheimer's disease neuroimaging initiative,
+the ADAS-cog scores were\footnote{13-item cognitive subscale of the Alzheimer's disease assessment scale,
+  lower scores indicate less impairment (Rosen, Mohs, and Davis 1984)} available at baseline visits and 6, 12, 18, 24, and 36
+months after baseline. The estimated means at the corresponding time points are
+\[(19.6, 20.5, 20.9, 22.7, 23.8, 27.4)'\]
+and the corresponding estimated covariance matrix is
+\[\begin{pmatrix}
+45.1 & 40.0 & 45.1 & 54.9 & 53.6 & 60.8 \\
+40.0 & 57.8 & 54.4 & 66.3 & 64.1 & 74.7 \\
+45.1 & 54.4 & 72.0 & 80.0 & 77.6 & 93.1 \\
+54.9 & 66.3 & 80.0 & 109.8 & 99.3 & 121.7 \\
+53.6 & 64.1 & 77.6 & 99.3 & 111.4 & 127.8 \\
+60.8 & 74.7 & 93.1 & 121.7 & 127.8 & 191.4
+\end{pmatrix}.\]
+Patient-level data in the control group are generated from a multivariate normal
+distribution with the above mean vector and covariance matrix, as in
+Raket (2022, sec. 5.1). Whereas Raket (2022) considered
+multiple types of treatment effects, we only consider treatment effects that
+correspond to proportional slowing.
+
+To simulate proportional slowing, we first consider the reference trajectory,
+that is, the mean ADAS-cog score in the control group (\(Z = 0\)) as a function of
+time since baseline (\(t\)), \[f_{0}(t; \boldsymbol{\alpha}) = E(Y_{t} | Z = 0)\]
+where \(Y_t\) is the ADAScog score \(t\) months after baseline. This trajectory
+should be a continuous function defined for every time point in the relevant
+range, \([0, 36]\). Because we only have 6 mean estimates, at 6 distinct time
+points, we interpolate between these 6 points with natural cubic interpolation.
+This \emph{interpolated} reference trajectory is given in Figure
+\ref{fig:data-generating-model-visualization}.
+
+For simulating data from the treated group (\(Z = 1\)), we consider trajectories of the
+following form, \[E(Y_t | Z = 1) = f_0(\gamma \cdot t; \boldsymbol{\alpha}) \]
+where \(\gamma\) is the proportional slowing factor. These data are simulated from
+a multivariate normal distribution with the means determined by the above
+trajectory function and with the same covariance matrix as in the control group.
+
+We consider a set of DGMs where the following elements are varied to represent
+a range of realistic scenarios:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Progression Rate}. We consider a \emph{normal} and \emph{fast} progression rate. The
+  normal progression rate corresponds to the mean vector presented above. For the
+  fast progression rate, we change the mean vector in the control group to
+  \[(18.0, 19.7, 20.9, 22.7, 24.7, 29.2)'.\] Alternatively, the fast progression
+  scenario could also be interpreted as corresponding to trials where patients have
+  been followed up longer.
+\item
+  \textbf{Treatment Effect}. We consider 3 different (proportional slowing) treatment
+  effects, that is, \(\gamma \in \{1, 0.75, 0.50 \}\).
+\item
+  \textbf{Sample Size}. We consider 4 different total sample sizes, \(n \in \{50, 200, 500, 1000\}\).
+  Note that \(n\) is the total sample size, and we assume \(1:1\) randomization in all settings.
+\item
+  \textbf{Duration of follow up}. We consider settings with 24 and 36 months of follow up,
+  corresponding to 5 and 6 measurements of the ADAScog score, respectively.
+\end{itemize}
+
+\begin{figure}
+\centering
+\includegraphics{results-analysis_files/figure-latex/data-generating-model-visualization-1.pdf}
+\caption{\label{fig:data-generating-model-visualization}Plot of the trajectories used in the DGMs. A slowing factor equal to 1 corresponds to no treatment effect.}
+\end{figure}
+
+\hypertarget{analysis-methods}{%
+\section{Analysis Methods}\label{analysis-methods}}
+
+In this section, two analysis methods are briefly outline. We first present the
+mixed model for repeated measures (MMRM) that is fitted to the simulated data sets.
+Next, we discuss the meta TCT methods which use the fitted MMRM.
+
+\hypertarget{mixed-model-for-repeated-measures}{%
+\subsection{Mixed Model for Repeated Measures}\label{mixed-model-for-repeated-measures}}
+
+For each simulated data set, a MMRM is fitted. This is a linear mixed model
+where time is treated as a categorical covariate. The \textbf{systematic part} consists
+of the interaction between treatment and time, except for \(t = 0\) where we
+assume that the mean outcome is equal in both treatment groups. Let \(j = 0, 1, ..., K\)
+denote the measurement occasions, and \(t_j\) the corresponding months after baseline.
+The mean outcome is then modeled as
+\[E(Y_{t_j} | Z = z) = \beta_{z, j} \; \forall \; j \in \{ 1, ..., K \}\]
+and \(E(Y_{0} | Z = 0) = E(Y_{0} | Z = 1) = \beta_0\).
+This essentially
+means that we have a parameter for each measurement occasion-treatment
+combination, except for baseline. The \textbf{covariance matrix} is assumed to be
+unstructured, but common for both treatment groups.
+For all simulation scenarios, this is a correctly specified model.
+
+These models are fitted using restricted maximum likelihood (REML) using the
+\texttt{mmrm()} function from the \texttt{mmrm} R-package (Sabanes Bove et al. 2022). The parameter
+estimates and corresponding variance-covariance matrix are obtained by the
+\texttt{coef()} and \texttt{vcov()} methods. The hypothesis test for
+\[H_0: \beta_{0, j} = \beta_{1, j} \; \forall \; j \in \{ 1, ..., K \} \]
+is based on the F-test with the Kenward-Roger approximate degrees of freedom.
+
+\hypertarget{meta-tct}{%
+\subsection{Meta TCT}\label{meta-tct}}
+
+TO DO
+
+\hypertarget{results}{%
+\section{Results}\label{results}}
+
+In this section, the results of the simulation study are presented and analyzed.
+For each setting, we consider \(5000\) replications. For estimating coverage of
+95\% CIs and empirical type 1 errors, this leads to a standard error of
+\(\frac{0.05*0.95}{\sqrt{5000}} = 0.003\) under nominal coverage and a nominal
+type 1 error.
+
+In this section, we focus on the generalized least squares version of meta TCT
+where the fitted MMRM is re-estimated to satisfy monotonicity and range
+constraints as explained in the documentation of
+\texttt{TCT::constrained\_vertical\_estimator()}.
+
+The analyses and presentation of the simulation results are, somewhat
+artificially, divided into two parts. First, we present the results regarding
+estimation of the acceleration factor. Second, we present the results regarding
+inference. The operations characteristics of the meta TCT inference procedures
+are also compared with these of MMRM.
+
+\hypertarget{estimation}{%
+\subsection{Estimation}\label{estimation}}
+
+To evaluate estimation, we look at 3 key performance measure,
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{Bias of the estimator.} This is achieve by estimating \(E(\hat{\gamma})\)
+  across different settings, and comparing the estimated expectation with the
+  \emph{true value}, \(\gamma_0\).
+\item
+  \textbf{Mean squared error.} The mean squared error of the estimator is defined as
+  \$E\{(\hat{\gamma} - \gamma\_0)\^{}2 \}. This quantity is estimated as the mean of the
+  squared differences between \(\hat{\gamma}\) and \(\gamma_0\). This quantity quantifies the average
+  distance between the estimator and the estimand, which depends on the variance and
+  bias.
+\item
+  \textbf{Empirical standard deviation.} The empirical standard deviation of the estimator simply
+  is the standard deviation of the estimator. This measure is estimated as the sample
+  standard deviation of the estimates in each setting. This value is compared with the
+  median \emph{estimated standard error}.
+\end{enumerate}
+
+In Figure @fig:expected-value-estimator, the mean estimated acceleration factor
+is presented across a set of scenarios. GENERAL BIAS? BIAS in SMALL SAMPLES?
+
+\begin{figure}
+\centering
+\includegraphics{results-analysis_files/figure-latex/expected-value-estimator-1.pdf}
+\caption{\label{fig:expected-value-estimator}Graph of mean estimated acceleration factor across a set of simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT.}
+\end{figure}
+
+In Figure (\textbf{fig:mse-estimator?}), the mean squared error of the estimator for the
+common acceleration factor is presented across a set of scenarios. As expected,
+the MSE decreases as a function of the sample size. Moreover, a longer follow up
+and faster progression lead to a smaller MSE.
+
+\begin{figure}
+\centering
+\includegraphics{results-analysis_files/figure-latex/mse-estimator-1.pdf}
+\caption{\label{fig:mse-estimator}Graph of the mean squared errors of the estimator for the common accleration factor across all simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT. Note that both axes are log10-transformed.}
+\end{figure}
+
+In Figure (\textbf{fig:se-estimator?}), the empirical standard deviations are plotted
+together with the median estimated standard errors. For small sample size, the
+standard error estimator underestimates the empirical standard error. However,
+this underestimation error largely disappears for larger the larger sample sizes.
+
+\begin{figure}
+\centering
+\includegraphics{results-analysis_files/figure-latex/se-estimator-1.pdf}
+\caption{\label{fig:se-estimator}Graph of the empirical standard deviations and the median estimated standard errors of the estimator for the common accleration factor across a set of simulation settings. The dots, and connecting lines, represent the empirical standard deviations. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT. The triangles represent the median estimated standard errors.}
+\end{figure}
+
+\hypertarget{inference}{%
+\subsection{Inference}\label{inference}}
+
+To evaluate inference, we look at 2 key performance measure,
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{Type 1 error and power.} We compare the empirical type 1 error with the
+  nominal rate, \(\alpha = 0.05\). We do this for both the meta TCT methods, as for
+  the MMRM. The former is based on the latter, so we also expect discrepancies
+  between empirical and nominal type 1 error rates for the MMRM to be reflected in
+  the meta TCT methods.
+\item
+  \textbf{Coverage.} We asses the empirical coverage rate of the estimated \(95\%\)
+  CIs.
+\end{enumerate}
+
+In Figure (\textbf{fig:error-rates-meta-tct?}), we graph the empirical type 1 error rate and
+power. The corresponding operating characteristics for the F-test are superimposed
+in gray.
+This reveals that the type 1 error rate is inflated for \ldots{} Consequently, the power
+for the corresponding settings is misleading.
+For \ldots{} settings, the type 1 error is close to nominal, hence, the corresponding
+empirical powers can be interpreted as such. Comparing these with the power of the
+F-test reveals that the meta TCT test yields a higher power.
+
+\begin{verbatim}
+## Warning in geom_line(data = results_tbl_inference %>% filter(constraints == :
+## Ignoring unknown aesthetics: shape
+\end{verbatim}
+
+\begin{figure}
+\centering
+\includegraphics{results-analysis_files/figure-latex/error-rates-meta-tct-1.pdf}
+\caption{\label{fig:error-rates-meta-tct}Graph of empirical type 1 error rates and power across a set of simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT.}
+\end{figure}
+
+In Figure (\textbf{fig:coverage-meta-tct?}), the empirical coverage rates are presented for
+the same settings as before.
+This reveals that there is undercoverage for \ldots{}
+For \ldots{} settings, coverage is close to nominal.
+
+\begin{figure}
+\centering
+\includegraphics{results-analysis_files/figure-latex/coverage-meta-tct-1.pdf}
+\caption{\label{fig:coverage-meta-tct}Graph of empirical coverage across a set of simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT.}
+\end{figure}
+
+\hypertarget{summary}{%
+\section{Summary}\label{summary}}
+
+The results are summarized following the goals of the simulation analysis.
+
+Primary goal: Evaluate finite sample properties of the method, also in relation
+to asymptotic inference procedures.
+
+\begin{itemize}
+\tightlist
+\item
+  Bias
+\item
+  MSE, SD, SE,
+\item
+  CIs and error rates
+\end{itemize}
+
+Secondary goal: Identify settings where the meta TCT methods may yield
+untrustworthy results.
+
+\begin{itemize}
+\tightlist
+\item
+  Sample size
+\item
+  Duration of follow up
+\item
+  Discarding time points
+\end{itemize}
+
+\hypertarget{refs}{}
+\begin{CSLReferences}{1}{0}
+\leavevmode\vadjust pre{\hypertarget{ref-raket_progression_2022}{}}%
+Raket, Lars Lau. 2022. {``Progression Models for Repeated Measures: {Estimating} Novel Treatment Effects in Progressive Diseases.''} \emph{Statistics in Medicine} 41 (28): 5537--57. \url{https://doi.org/10.1002/sim.9581}.
+
+\leavevmode\vadjust pre{\hypertarget{ref-rosen1984new}{}}%
+Rosen, Wilma G, Richard C Mohs, and Kenneth L Davis. 1984. {``A New Rating Scale for Alzheimer's Disease.''} \emph{The American Journal of Psychiatry} 141 (11): 1356--64.
+
+\leavevmode\vadjust pre{\hypertarget{ref-mmrmpackage}{}}%
+Sabanes Bove, Daniel, Julia Dedic, Doug Kelkhoff, Kevin Kunzmann, Brian Matthew Lang, Liming Li, and Ya Wang. 2022. \emph{Mmrm: Mixed Models for Repeated Measures}. \url{https://openpharma.github.io/mmrm/}.
+
+\leavevmode\vadjust pre{\hypertarget{ref-veitch2019understanding}{}}%
+Veitch, Dallas P, Michael W Weiner, Paul S Aisen, Laurel A Beckett, Nigel J Cairns, Robert C Green, Danielle Harvey, et al. 2019. {``Understanding Disease Progression and Improving Alzheimer's Disease Clinical Trials: Recent Highlights from the Alzheimer's Disease Neuroimaging Initiative.''} \emph{Alzheimer's \& Dementia} 15 (1): 106--52.
+
+\end{CSLReferences}
+
+\end{document}

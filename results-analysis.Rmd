@@ -2,7 +2,9 @@
 title: "Results Simulation Study"
 author: "Florian Stijven"
 date: "`r Sys.Date()`"
-output: bookdown::html_document2
+output: 
+  bookdown::html_document2:
+    toc: true
 bibliography: references.bib
 ---
 
@@ -20,8 +22,9 @@ library(TCT)
 In this Rmarkdown document, we analyze the results of the simulation study for
 assessing the finite sample properties of the meta TCT methods. The primary goal
 of this simulation study is to asses to what degree the theoretical asymptotic
-results translate to finite samples. The secondary goal is to assess the
-correctness of the implementation in the `TCT` R-package.
+results translate to finite samples. The secondary goal is to identify finite
+sample settings where the meta TCT methods are not trustworthy. The tertiary
+goal is to assess the correctness of the implementation in the `TCT` R-package.
 
 All simulated data sets were generated from multivariate normal distributions 
 matching the data generating model (DGM) used by @raket_progression_2022 [Section 5.1].
@@ -68,8 +71,8 @@ time since baseline ($t$), $$f_{0}(t; \boldsymbol{\alpha}) = E(Y_{t} | Z = 0)$$
 where $Y_t$ is the ADAScog score $t$ months after baseline. This trajectory
 should be a continuous function defined for every time point in the relevant
 range, $[0, 36]$. Because we only have 6 mean estimates, at 6 distinct time
-points, we interpolate between these 6 points with natural cubic interpolation.
-This *interpolated* reference trajectory is given in Figure
+points, we interpolate between these 6 points with natural cubic spline
+interpolation. This *interpolated* reference trajectory is given in Figure
 \@ref(fig:data-generating-model-visualization).
 
 [^2]: 13-item cognitive subscale of the Alzheimer’s disease assessment scale, 
@@ -97,7 +100,7 @@ Note that $n$ is the total sample size, and we assume $1:1$ randomization in all
 * **Duration of follow up**. We consider settings with 24 and 36 months of follow up, 
 corresponding to 5 and 6 measurements of the ADAScog score, respectively.
 
-```{r data-generating-model-visualization, fig.cap = "Plot of the trajectories used in the DGMs. A slowing factor equal to 1 corresponds to no treatment effect."}
+```{r data-generating-model-visualization, fig.cap = "Plot of the trajectories used in the DGMs. A slowing factor equal to 1 corresponds to no treatment effect. The dots represent correspond to measurement occasions while the lines between dots are based on interpolation."}
 ref_means_list = list(
   "Normal Progression" = c(19.6, 20.5, 20.9, 22.7, 23.8, 27.4),
   "Fast Progression" = c(18, 19.7, 20.9, 22.7, 24.7, 29.2)
@@ -177,7 +180,7 @@ trajectory_observed_tbl %>%
 
 # Analysis Methods
 
-In this section, two analysis methods are briefly outline. We first present the 
+In this section, two analysis methods are briefly outlined. We first present the 
 mixed model for repeated measures (MMRM) that is fitted to the simulated data sets.
 Next, we discuss the meta TCT methods which use the fitted MMRM. 
 
@@ -189,7 +192,7 @@ of the interaction between treatment and time, except for $t = 0$ where we
 assume that the mean outcome is equal in both treatment groups. Let $j = 0, 1, ..., K$
 denote the measurement occasions, and $t_j$ the corresponding months after baseline.
 The mean outcome is then modeled as
-$$E(Y_{t_j} | Z = z) = \beta_{z, j} \; \forall \; j \in \{ 1, ..., K \}$$
+$$E(Y_{t_j} | Z = z) = \beta_{z, j} \; \forall \; j \in \{ 1, ..., K \} \text{ and } z \in \{0, 1\}$$
 and $E(Y_{0} | Z = 0) = E(Y_{0} | Z = 1) = \beta_0$.
 This essentially
 means that we have a parameter for each measurement occasion-treatment
@@ -210,16 +213,24 @@ TO DO
 
 # Results
 
-In this section, the results of the simulation study are presented. For each 
-setting, we considered $N$ replications. For estimating coverage of 95\% CIs and
-empirical type 1 errors, this leads to a standard error of $X$. 
+In this section, the results of the simulation study are presented and analyzed.
+For each setting, we consider $5000$ replications. For estimating coverage of
+95\% CIs and empirical type 1 errors, this leads to a standard error of
+$\frac{\sqrt{0.05 \cdot 0.95}}{\sqrt{5000}} = 0.003$ assuming nominal coverage and a nominal
+type 1 error.
 
-First, we present the results regarding estimation in terms of 
+In this section, we focus on the generalized least squares version of meta TCT
+where the fitted MMRM is re-estimated to satisfy monotonicity and range
+constraints as explained in the documentation of
+`TCT::constrained_vertical_estimator()`.
 
-
-
-Second, we look at operating characteristics of the inference procedures. These 
-also compared with inference based on the MMRM.
+The analyses and presentation of the simulation results are, somewhat
+artificially, divided into two parts. First, we present the results regarding
+estimation of the acceleration factor. This is the primary goal of the meta TCT
+methods: Transforming the treatment effect to an easy to interpret quantity.
+Second, we present the results regarding inference. The operations
+characteristics of the meta TCT inference procedures are also compared with
+these of MMRM.
 
 ```{r}
 # Read data set with results of the simulation study.
@@ -234,6 +245,21 @@ results_tbl = readRDS(file = "results_simulation_lean.rds") %>%
 
 ## Estimation
 
+To evaluate estimation, we look at 3 key performance measures,
+
+1. **Bias of the estimator.** This is achieve by estimating $E(\hat{\gamma})$ 
+across different settings, and comparing the estimated expectation with the 
+*true value*, $\gamma_0$.
+2. **Mean squared error.** The mean squared error of the estimator is defined as
+$E\{(\hat{\gamma} - \gamma_0)^2 \}$. This quantity is estimated as the mean of the 
+squared differences between $\hat{\gamma}$ and $\gamma_0$. This quantity quantifies the average
+distance between the estimator and the estimand, which depends on the variance and
+bias.
+3. **Empirical standard deviation.** The empirical standard deviation of the estimator simply
+is the standard deviation of the estimator. This measure is estimated as the sample
+standard deviation of the estimates in each setting. This value is compared with the
+median *estimated standard error*.  
+
 ```{r}
 # Compute all summary measures regarding the performance of the estimators.
 results_tbl_estimation = results_tbl %>%
@@ -242,13 +268,15 @@ results_tbl_estimation = results_tbl %>%
   summarise(mean_estimate = mean(estimate),
             empirical_sd = sd(estimate),
             mean_se = mean(se_TCT_common),
+            median_se = median(se_TCT_common),
             mse = mean((estimate - gamma_slowing)**2)) %>%
   mutate("Follow Up" = ifelse(K == 6, "36 Months", "24 Months"))
 ```
 
-In Figure X, we present the results regarding estimation across all scenarios.
+In Figure \@ref(fig:expected-value-estimator), the mean estimated acceleration factor
+is presented across a set of scenarios. GENERAL BIAS? BIAS in SMALL SAMPLES?
 
-```{r expected-value-estimator, fig.cap = "Graph of estimated expected value of the estimator for the common accleration factor across all simulation settings."}
+```{r expected-value-estimator, fig.cap = "Graph of mean estimated acceleration factor across a set of simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT."}
 results_tbl_estimation %>%
   filter(constraints == TRUE, inference == "least-squares") %>%
   ggplot(aes(x = n, y = mean_estimate, color = `Follow Up`, linetype = progression)) +
@@ -262,21 +290,41 @@ results_tbl_estimation %>%
       yintercept = gamma_slowing
     ),
     alpha = 0.5) +
+  xlab("Sample size, n") +
+  ylab(latex2exp::TeX("E(\\hat{\\gamma})")) +
+  scale_linetype(name = "Progression Rate") +
   facet_grid(gamma_slowing~drop_first_occasions, scales = "free")
 ```
 
-```{r mse-estimator, fig.cap = "Graph of the means squared error of the estimator for the common accleration factor across all simulation settings."}
+In Figure \@ref(fig:mse-estimator), the mean squared error of the estimator for the
+common acceleration factor is presented across a set of scenarios. As expected,
+the MSE decreases as a function of the sample size. Moreover, a longer follow up
+and faster progression lead to a smaller MSE.
+
+```{r mse-estimator, fig.cap = "Graph of the mean squared errors of the estimator for the common accleration factor across all simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT. Note that both axes are log10-transformed."}
 results_tbl_estimation %>%
   filter(constraints == TRUE, inference == "least-squares") %>%
   ggplot(aes(x = n, y = mse, color = `Follow Up`, linetype = progression)) +
   geom_point() + 
   geom_line() +
-  scale_y_continuous(trans = "log10") +
-  scale_x_continuous(trans = "log10") +
+  scale_y_continuous(trans = "log10", name = "MSE") +
+  scale_x_continuous(trans = "log10", name = "Sample Size, n") +
+    scale_linetype(name = "Progression Rate") +
   facet_grid(gamma_slowing~drop_first_occasions, scales = "free")
 ```
 
-```{r se-estimator, fig.cap = "Graph of the empirical standard deviations and the mean estimated standard error of the estimator for the common accleration factor across all simulation settings."}
+In Figure \@ref(fig:se-estimator), the empirical standard deviations are plotted 
+together with the median estimated standard errors. For small sample size, the
+standard error estimator underestimates the empirical standard error. However, 
+this underestimation error largely disappears for larger the larger sample sizes.
+
+Although inference is not based directly on the estimated standard error, this 
+leads to issues if the estimated acceleration factor would be used in meta-analyses.
+We therefore apply the delta method, and parametric bootstrap? (if delta-method work 
+fine, not really necessary to go to bootstrap).
+
+
+```{r se-estimator, fig.cap = "Graph of the empirical standard deviations and the median estimated standard errors of the estimator for the common accleration factor across a set of simulation settings. The dots, and connecting lines, represent the empirical standard deviations. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT. The triangles represent the median estimated standard errors."}
 results_tbl_estimation %>%
   filter(constraints == TRUE, inference == "least-squares") %>%
   ggplot(aes(
@@ -290,19 +338,28 @@ results_tbl_estimation %>%
   geom_point(
     data = results_tbl_estimation %>%
       filter(constraints == TRUE, inference == "least-squares"),
-    mapping = aes(x = n, y = mean_se),
+    mapping = aes(x = n, y = median_se),
     shape = 2
   ) +
-  scale_y_continuous(trans = "log10") +
-  scale_x_continuous(trans = "log10") +
+  scale_y_continuous(trans = "log10", name = "Empirical SD and median estimated SE") +
+  scale_x_continuous(trans = "log10", name = "Sample Size, n") +
+  scale_linetype(name = "Progression Rate") +
   facet_grid(gamma_slowing ~ drop_first_occasions, scales = "free")
 ```
 
 
-
-
-
 ## Inference
+
+To evaluate inference, we look at 2 key performance measure,
+
+1. **Type 1 error and power.** We compare the empirical type 1 error with the
+nominal rate, $\alpha = 0.05$. We do this for both the meta TCT methods, as for
+the MMRM. The former is based on the latter, so we also expect discrepancies
+between empirical and nominal type 1 error rates for the MMRM to be reflected in
+the meta TCT methods.
+2. **Coverage.** We asses the empirical coverage rate of the estimated $95\%$ 
+CIs. 
+
 
 
 ```{r}
@@ -337,35 +394,73 @@ results_tbl_inference = results_tbl %>%
   mutate("Follow Up" = ifelse(K == 6, "36 Months", "24 Months"))
 ```
 
-```{r}
+In Figure \@ref(fig:error-rates-meta-tct), we graph the empirical type 1 error rate and
+power. The corresponding operating characteristics for the F-test are superimposed 
+in gray. 
+This reveals that the type 1 error rate is inflated for ... Consequently, the power 
+for the corresponding settings is misleading. 
+For ... settings, the type 1 error is close to nominal, hence, the corresponding
+empirical powers can be interpreted as such. Comparing these with the power of the
+F-test reveals that the meta TCT test yields a higher power. 
+
+```{r error-rates-meta-tct, fig.cap = "Graph of empirical type 1 error rates and power across a set of simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT."}
 results_tbl_inference %>%
   filter(constraints == TRUE, inference == "least-squares") %>%
   ggplot(aes(
     x = n,
     y = rejection_rate,
     color = `Follow Up`,
+    shape = `Follow Up`,
     linetype = progression
   )) +
   geom_point() +
   geom_line() +
+  geom_point(
+    data = results_tbl_inference %>%
+      filter(constraints == TRUE, inference == "least-squares"),
+    mapping = aes(
+      x = n,
+      y = rejection_rate_mmrm,
+      shape = `Follow Up`
+    ),
+    alpha = 0.5, 
+    color = "gray"
+  ) +
+  geom_line(
+    data = results_tbl_inference %>%
+      filter(constraints == TRUE, inference == "least-squares"),
+    mapping = aes(
+      x = n,
+      y = rejection_rate_mmrm,
+      shape = `Follow Up`,
+      linetype = progression
+    ),
+    alpha = 0.75,
+    color = "gray"
+  ) +
+  geom_hline(
+    # Add horizontal lines to indicate the 0.05 nominal error rate in the null
+    # settings.
+    data = tidyr::expand_grid(
+      rejection_rate = 0.05,
+      drop_first_occasions = 0:2,
+      gamma_slowing = 1
+    ),
+    mapping = aes(yintercept = rejection_rate),
+    alpha = 0.5
+  ) +
+  xlab("Sample size, n") +
+  ylab(latex2exp::TeX("Empirical Power or Type 1 Error Rate")) +
+  scale_linetype(name = "Progression Rate") +
   facet_grid(gamma_slowing ~ drop_first_occasions, scales = "free")
 ```
 
-```{r}
-results_tbl_inference %>%
-  filter(constraints == TRUE, inference == "least-squares") %>%
-  ggplot(aes(
-    x = n,
-    y = rejection_rate_mmrm,
-    color = `Follow Up`,
-    linetype = progression
-  )) +
-  geom_point() +
-  geom_line() +
-  facet_grid(gamma_slowing ~ drop_first_occasions, scales = "free")
-```
+In Figure \@ref(fig:coverage-meta-tct), the empirical coverage rates are presented for 
+the same settings as before. 
+This reveals that there is undercoverage for ...
+For ... settings, coverage is close to nominal. 
 
-```{r}
+```{r coverage-meta-tct, fig.cap = "Graph of empirical coverage across a set of simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT."}
 results_tbl_inference %>%
   filter(constraints == TRUE, inference == "least-squares") %>%
   ggplot(aes(
@@ -379,6 +474,23 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ drop_first_occasions, scales = "free")
 ```
 
+# Summary
+
+The results are summarized following the goals of the simulation analysis.
+
+Primary goal: Evaluate finite sample properties of the method, also in relation
+to asymptotic inference procedures.
+
+* Bias
+* MSE, SD, SE,
+* CIs and error rates
+
+Secondary goal: Identify settings where the meta TCT methods may yield
+untrustworthy results.
+
+* Sample size
+* Duration of follow up
+* Discarding time points
 
 
 
