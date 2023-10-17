@@ -350,7 +350,7 @@ results_tbl_estimation %>%
 
 ## Inference
 
-To evaluate inference, we look at 2 key performance measure,
+To evaluate inference, we look at 2 key performance measures,
 
 1. **Type 1 error and power.** We compare the empirical type 1 error with the
 nominal rate, $\alpha = 0.05$. We do this for both the meta TCT methods, as for
@@ -401,7 +401,7 @@ This reveals that the type 1 error rate is inflated for ... Consequently, the po
 for the corresponding settings is misleading. 
 For ... settings, the type 1 error is close to nominal, hence, the corresponding
 empirical powers can be interpreted as such. Comparing these with the power of the
-F-test reveals that the meta TCT test yields a higher power. 
+F-test reveals that the meta TCT test yields a higher power in ... 
 
 ```{r error-rates-meta-tct, fig.cap = "Graph of empirical type 1 error rates and power across a set of simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT."}
 results_tbl_inference %>%
@@ -432,7 +432,6 @@ results_tbl_inference %>%
     mapping = aes(
       x = n,
       y = rejection_rate_mmrm,
-      shape = `Follow Up`,
       linetype = progression
     ),
     alpha = 0.75,
@@ -471,12 +470,34 @@ results_tbl_inference %>%
   )) +
   geom_point() +
   geom_line() +
+    geom_hline(
+    # Add horizontal lines to indicate the 0.95 nominal coverage.
+    data = tidyr::expand_grid(
+      coverage = 0.95,
+      drop_first_occasions = 0:2,
+      gamma_slowing = c(0.5, 0.75, 1)
+    ),
+    mapping = aes(yintercept = coverage),
+    alpha = 0.5
+  ) +
   facet_grid(gamma_slowing ~ drop_first_occasions, scales = "free")
 ```
 
+# Parametric Bootstrap
+
+In small samples, the operating characteristics of the asymptotic inferential
+procedures deviate considerably from nominal. We therefore examine the performance
+of a parametric bootstrap in a selected set of settings. 
+
+IDEA OF BS
+
+PERCENTILE CI
+
+RESULTS
+
 # Summary
 
-The results are summarized following the goals of the simulation analysis.
+The results are summarized according to the goals of the simulation study.
 
 Primary goal: Evaluate finite sample properties of the method, also in relation
 to asymptotic inference procedures.
@@ -491,6 +512,31 @@ untrustworthy results.
 * Sample size
 * Duration of follow up
 * Discarding time points
+
+# Appendix
+
+## All Simulation Settings
+
+In the following table, we summarize the results for all simulation settings.
+
+```{r}
+results_tbl_combined = full_join(
+  x = results_tbl_estimation,
+  y = results_tbl_inference
+)
+```
+
+```{r}
+DT::datatable(results_tbl_combined %>%
+                rename("gamma_0" = "gamma_slowing") %>%
+                ungroup() %>%
+                mutate(across(.cols = where(is.numeric), 
+                       .fns = ~ round(.x, digits = 3))), 
+              caption = "Summary of all simulation scenarios.", 
+              filter = "top")
+```
+
+# References
 
 
 
