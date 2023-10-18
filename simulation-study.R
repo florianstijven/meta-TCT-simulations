@@ -40,7 +40,7 @@ settings = tidyr::expand_grid(
 ) 
 
 # Number of independent replications for each setting.
-N_trials = 300
+N_trials = 10
 # Set the seed for reproducibility.
 set.seed(1)
 
@@ -232,10 +232,11 @@ results_tbl = results_tbl %>%
   # We first add additional columns that specify the inference options.
   cross_join(
     tidyr::expand_grid(
-      drop_first_occasions = 0:2,
+      drop_first_occasions = 0:1,
       constraints = c(TRUE, FALSE),
       interpolation = c("spline"),
-      inference = c("wald", "score", "least-squares")
+      inference = c("wald", "score", "least-squares"),
+      B = c(0, 5e2)
     ) %>%
       # We do not consider pre-selected measurement occasions if we adaptively
       # estimate the weights because this is contradictory. Either the weights are
@@ -243,7 +244,16 @@ results_tbl = results_tbl %>%
       filter(!(
         drop_first_occasions > 0 & inference == "score"
       ))
-  )
+  ) %>%
+  # We only use the bootstrap for least-squares with a sample size of 50,
+  # 200 and 5000; re-estimation under constraints; no measurements dropped.
+  filter(!(B == 5e2 &
+             (constraints | drop_first_occasions == 1 | inference != "least-squares" | progression == "fast"))) %>%
+  # If for a given setting, we consider bootstrap replications, then we can
+  # delete the scenarios corresponding to B == 0 because we would be fitting the
+  # same model twice.
+  filter(!(B == 0 &
+             !(constraints | drop_first_occasions == 1 | inference != "least-squares" | progression == "fast")))
 
 results_tbl$TCT_meta_fit = parallel::clusterMap(
   cl = cl,
@@ -291,21 +301,36 @@ results_tbl$TCT_meta_common_fit = parallel::clusterMap(
   drop_first_occasions = results_tbl$drop_first_occasions,
   inference = results_tbl$inference,
   constraints = results_tbl$constraints,
+  B = results_tbl$B,
+  gamma_slowing = results_tbl$gamma_slowing,
   fun = function(TCT_meta_fit,
                  drop_first_occasions,
                  inference,
-                 constraints) {
+                 constraints,
+                 B, 
+                 gamma_slowing) {
     type = NULL
     if (inference == "score")
       type = "custom"
-    TCT_meta_common(
-      TCT_Fit = TCT_meta_fit,
-      inference = inference,
-      B = 0,
-      select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit)),
-      constraints = constraints,
-      type = type
+    # Some analyses use the bootstrap, and are thus stochastic. We therefore set
+    # the seed next to avoid differences depending on the parallel setup.
+    set.seed(1)
+    select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit))
+    t = tryCatch(
+      TCT_meta_common(
+        TCT_Fit = TCT_meta_fit,
+        inference = inference,
+        B = B,
+        select_coef = select_coef,
+        constraints = constraints,
+        type = type,
+        start_gamma = gamma_slowing
+      ),
+      error = function(e) {
+        return(NA)
+      }
     )
+    return(t)
   },
   SIMPLIFY = FALSE,
   USE.NAMES = TRUE,
@@ -323,23 +348,59 @@ print("meta-TCT-common finished")
 results_tbl$summary_TCT_common = parallel::parLapplyLB(cl = cl,
                                                      X = results_tbl$TCT_meta_common_fit,
                                                      fun = summary)
+parallel::stopCluster(cl)
 
 print("Common acceleration factors estimated")
 
-#Compute the confidence intervals and p-values.
+# Compute the confidence intervals and p-values.
 results_tbl = results_tbl %>%
   mutate(
     p_value_TCT_common = purrr::map_dbl(
       .x = summary_TCT_common, 
       .f = "p_value"
     ),
-    conf_int_TCT_common = purrr::map(
+    conf_int_TCT_common_lower = purrr::map_dbl(
       .x = summary_TCT_common,
-      .f = "gamma_common_ci"
+      .f = function(x) {
+        x$gamma_common_ci[1]
+      }
+    ),
+    conf_int_TCT_common_upper = purrr::map_dbl(
+      .x = summary_TCT_common,
+      .f = function(x) {
+        x$gamma_common_ci[2]
+      }
     ),
     se_TCT_common = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = "gamma_common_se"
+    ),
+    se_TCT_common_bs = purrr::map_dbl(
+      .x = summary_TCT_common,
+      .f = function(x) {
+        if (is.null(x$se_bootstrap))
+          return(NA)
+        else
+          return(x$se_bootstrap)
+      }
+    ),
+    conf_int_TCT_common_lower_bs = purrr::map_dbl(
+      .x = summary_TCT_common,
+      .f = function(x) {
+        if (is.null(x$se_bootstrap))
+          return(NA)
+        else
+          return(x$ci_bootstrap[1])
+      }
+    ),
+    conf_int_TCT_common_upper_bs = purrr::map_dbl(
+      .x = summary_TCT_common,
+      .f = function(x) {
+        if (is.null(x$se_bootstrap))
+          return(NA)
+        else
+          return(x$ci_bootstrap[2])
+      }
     )
   )
 
@@ -350,10 +411,12 @@ results_tbl = results_tbl %>%
 # version of the simulation results that will be used for further processing. In
 # the latter data set, only necessary information for processing is included.
 results_lean_tbl = results_tbl %>%
-  select(-vcov_mmrm, -coef_mmrm, -TCT_meta_fit, -summary_TCT_common)
+  select(-vcov_mmrm, -coef_mmrm, -TCT_meta_fit, -summary_TCT_common, -TCT_meta_common_fit, -time_points)
 
 saveRDS(object = results_tbl, file = "results_simulation_full.rds")
 saveRDS(object = results_lean_tbl, file = "results_simulation_lean.rds")
+write.csv(x = results_lean_tbl,
+          file = "results_simulation_lean.csv")
 
 print(Sys.time() - a)
 

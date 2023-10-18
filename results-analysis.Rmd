@@ -263,12 +263,18 @@ median *estimated standard error*.
 ```{r}
 # Compute all summary measures regarding the performance of the estimators.
 results_tbl_estimation = results_tbl %>%
+  mutate(se_log = (1 / estimate ** 2) * se_TCT_common) %>%
   # Group by all simulation scenarios.
   group_by(progression, gamma_slowing, n, K, drop_first_occasions, constraints, inference) %>%
   summarise(mean_estimate = mean(estimate),
             empirical_sd = sd(estimate),
+            empirical_sd_log = sd(log(estimate)),
             mean_se = mean(se_TCT_common),
             median_se = median(se_TCT_common),
+            mean_se_log = mean(se_log),
+            median_se_log = median(se_log),
+            mean_se_bs = mean(se_TCT_common_bs),
+            median_se_bs = median(se_TCT_common_bs),
             mse = mean((estimate - gamma_slowing)**2)) %>%
   mutate("Follow Up" = ifelse(K == 6, "36 Months", "24 Months"))
 ```
@@ -278,14 +284,14 @@ is presented across a set of scenarios. GENERAL BIAS? BIAS in SMALL SAMPLES?
 
 ```{r expected-value-estimator, fig.cap = "Graph of mean estimated acceleration factor across a set of simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT."}
 results_tbl_estimation %>%
-  filter(constraints == TRUE, inference == "least-squares") %>%
+  filter(constraints == FALSE, inference == "least-squares") %>%
   ggplot(aes(x = n, y = mean_estimate, color = `Follow Up`, linetype = progression)) +
   geom_point() + 
   geom_line() + 
   geom_hline(
     # Add horizontal lines to indicate the true values.
     data = tidyr::expand_grid(gamma_slowing = c(0.5, 0.75, 1), 
-                              drop_first_occasions = 0:2),
+                              drop_first_occasions = 0:1),
     mapping = aes(
       yintercept = gamma_slowing
     ),
@@ -303,7 +309,7 @@ and faster progression lead to a smaller MSE.
 
 ```{r mse-estimator, fig.cap = "Graph of the mean squared errors of the estimator for the common accleration factor across all simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT. Note that both axes are log10-transformed."}
 results_tbl_estimation %>%
-  filter(constraints == TRUE, inference == "least-squares") %>%
+  filter(constraints == FALSE, inference == "least-squares") %>%
   ggplot(aes(x = n, y = mse, color = `Follow Up`, linetype = progression)) +
   geom_point() + 
   geom_line() +
@@ -326,7 +332,7 @@ fine, not really necessary to go to bootstrap).
 
 ```{r se-estimator, fig.cap = "Graph of the empirical standard deviations and the median estimated standard errors of the estimator for the common accleration factor across a set of simulation settings. The dots, and connecting lines, represent the empirical standard deviations. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT. The triangles represent the median estimated standard errors."}
 results_tbl_estimation %>%
-  filter(constraints == TRUE, inference == "least-squares") %>%
+  filter(constraints == FALSE, inference == "least-squares") %>%
   ggplot(aes(
     x = n,
     y = empirical_sd,
@@ -337,7 +343,7 @@ results_tbl_estimation %>%
   geom_line() +
   geom_point(
     data = results_tbl_estimation %>%
-      filter(constraints == TRUE, inference == "least-squares"),
+      filter(constraints == FALSE, inference == "least-squares"),
     mapping = aes(x = n, y = median_se),
     shape = 2
   ) +
@@ -361,36 +367,31 @@ the meta TCT methods.
 CIs. 
 
 
-
-```{r}
-# Compute all summary measures regarding the performance of the estimators.
-results_tbl_inference = results_tbl %>%
-  # Group by all simulation scenarios.
-  group_by(progression, gamma_slowing, n, K, drop_first_occasions, constraints, inference) %>%
-  summarise(mean_estimate = mean(estimate),
-            empirical_sd = sd(estimate),
-            mean_se = mean(se_TCT_common),
-            mse = mean((estimate - gamma_slowing)**2)) %>%
-  mutate("Follow Up" = ifelse(K == 6, "36 Months", "24 Months"))
-```
-
 ```{r}
 results_tbl_inference = results_tbl %>%
-  # Extract lower and upper 95% confidence limits into two new columns.
-  mutate(lower_conf_int = purrr::map_dbl(.x = conf_int_TCT_common, .f = 1),
-         upper_conf_int = purrr::map_dbl(.x = conf_int_TCT_common, .f = 2)) %>%
   mutate(
     # Determine whether the CI contain the true value.
-    covered = (gamma_slowing <= upper_conf_int) & (gamma_slowing >= lower_conf_int),
+    covered = (gamma_slowing <= conf_int_TCT_common_upper) &
+      (gamma_slowing >= conf_int_TCT_common_lower),
+    covered_bs = (gamma_slowing <= conf_int_TCT_common_upper_bs) &
+      (gamma_slowing >= conf_int_TCT_common_lower_bs),
     # Determine whether the null has been rejected
     rejection = p_value_TCT_common <= 0.05,
     rejection_mmrm = p_value_mmrm <= 0.05
-    ) %>%
-  group_by(progression, gamma_slowing, n, K, drop_first_occasions, constraints, inference) %>%
+  ) %>%
+  group_by(progression,
+           gamma_slowing,
+           n,
+           K,
+           drop_first_occasions,
+           constraints,
+           inference) %>%
   summarise(
     coverage = mean(covered),
+    coverage_bs = mean(covered_bs),
     rejection_rate = mean(rejection),
-    rejection_rate_mmrm = mean(rejection_mmrm)) %>%
+    rejection_rate_mmrm = mean(rejection_mmrm)
+  ) %>%
   mutate("Follow Up" = ifelse(K == 6, "36 Months", "24 Months"))
 ```
 
@@ -405,7 +406,7 @@ F-test reveals that the meta TCT test yields a higher power in ...
 
 ```{r error-rates-meta-tct, fig.cap = "Graph of empirical type 1 error rates and power across a set of simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT."}
 results_tbl_inference %>%
-  filter(constraints == TRUE, inference == "least-squares") %>%
+  filter(constraints == FALSE, inference == "least-squares") %>%
   ggplot(aes(
     x = n,
     y = rejection_rate,
@@ -417,7 +418,7 @@ results_tbl_inference %>%
   geom_line() +
   geom_point(
     data = results_tbl_inference %>%
-      filter(constraints == TRUE, inference == "least-squares"),
+      filter(constraints == FALSE, inference == "least-squares"),
     mapping = aes(
       x = n,
       y = rejection_rate_mmrm,
@@ -428,7 +429,7 @@ results_tbl_inference %>%
   ) +
   geom_line(
     data = results_tbl_inference %>%
-      filter(constraints == TRUE, inference == "least-squares"),
+      filter(constraints == FALSE, inference == "least-squares"),
     mapping = aes(
       x = n,
       y = rejection_rate_mmrm,
@@ -442,7 +443,7 @@ results_tbl_inference %>%
     # settings.
     data = tidyr::expand_grid(
       rejection_rate = 0.05,
-      drop_first_occasions = 0:2,
+      drop_first_occasions = 0:1,
       gamma_slowing = 1
     ),
     mapping = aes(yintercept = rejection_rate),
@@ -461,7 +462,7 @@ For ... settings, coverage is close to nominal.
 
 ```{r coverage-meta-tct, fig.cap = "Graph of empirical coverage across a set of simulation settings. The presented results are based on the re-estimated MMRM parameters and least-squares meta TCT. The rows correspond to different true acceleration factors while the columns correspond to the number of post-randomization measures that have been ignored in meta TCT."}
 results_tbl_inference %>%
-  filter(constraints == TRUE, inference == "least-squares") %>%
+  filter(constraints == FALSE, inference == "least-squares") %>%
   ggplot(aes(
     x = n,
     y = coverage,
@@ -474,7 +475,7 @@ results_tbl_inference %>%
     # Add horizontal lines to indicate the 0.95 nominal coverage.
     data = tidyr::expand_grid(
       coverage = 0.95,
-      drop_first_occasions = 0:2,
+      drop_first_occasions = 0:1,
       gamma_slowing = c(0.5, 0.75, 1)
     ),
     mapping = aes(yintercept = coverage),
@@ -494,6 +495,55 @@ IDEA OF BS
 PERCENTILE CI
 
 RESULTS
+
+```{r}
+results_tbl_estimation %>%
+  filter(constraints == FALSE, inference == "least-squares", progression == "normal",
+         drop_first_occasions == 0) %>%
+  ggplot(aes(
+    x = n,
+    y = empirical_sd,
+    color = `Follow Up`,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+  geom_point(
+    data = results_tbl_estimation %>%
+      filter(constraints == FALSE, inference == "least-squares"),
+    mapping = aes(x = n, y = median_se_bs),
+    shape = 2
+  ) +
+  scale_y_continuous(trans = "log10", name = "Empirical SD and median estimated SE") +
+  scale_x_continuous(trans = "log10", name = "Sample Size, n") +
+  scale_linetype(name = "Progression Rate") +
+  facet_grid(gamma_slowing ~ ., scales = "free")
+```
+
+```{r}
+results_tbl_inference %>%
+  filter(constraints == FALSE, inference == "least-squares", drop_first_occasions == 0) %>%
+  ggplot(aes(
+    x = n,
+    y = coverage_bs,
+    color = `Follow Up`,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+    geom_hline(
+    # Add horizontal lines to indicate the 0.95 nominal coverage.
+    data = tidyr::expand_grid(
+      coverage = 0.95,
+      gamma_slowing = c(0.5, 0.75, 1)
+    ),
+    mapping = aes(yintercept = coverage),
+    alpha = 0.5
+  ) +
+  facet_grid(rows = "gamma_slowing", scales = "free")
+```
+
+
 
 # Summary
 
