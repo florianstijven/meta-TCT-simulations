@@ -234,12 +234,7 @@ these of MMRM.
 
 ```{r}
 # Read data set with results of the simulation study.
-results_tbl = readRDS(file = "results_simulation_lean.rds") %>%
-  # We also extract the estimated acceleration factor into a seperate column.
-  mutate(estimate = purrr::map_dbl(
-    .x = TCT_meta_common_fit,
-    .f = coef
-  ))
+results_tbl = readRDS(file = "results_simulation_lean.rds")
 ```
 
 
@@ -510,7 +505,8 @@ results_tbl_estimation %>%
   geom_line() +
   geom_point(
     data = results_tbl_estimation %>%
-      filter(constraints == FALSE, inference == "least-squares"),
+      filter(constraints == FALSE, inference == "least-squares", progression == "normal",
+         drop_first_occasions == 0),
     mapping = aes(x = n, y = median_se_bs),
     shape = 2
   ) +

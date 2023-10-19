@@ -40,7 +40,7 @@ settings = tidyr::expand_grid(
 ) 
 
 # Number of independent replications for each setting.
-N_trials = 10
+N_trials = 200
 # Set the seed for reproducibility.
 set.seed(1)
 
@@ -316,21 +316,16 @@ results_tbl$TCT_meta_common_fit = parallel::clusterMap(
     # the seed next to avoid differences depending on the parallel setup.
     set.seed(1)
     select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit))
-    t = tryCatch(
-      TCT_meta_common(
-        TCT_Fit = TCT_meta_fit,
-        inference = inference,
-        B = B,
-        select_coef = select_coef,
-        constraints = constraints,
-        type = type,
-        start_gamma = gamma_slowing
-      ),
-      error = function(e) {
-        return(NA)
-      }
+    TCT_meta_common(
+      TCT_Fit = TCT_meta_fit,
+      inference = inference,
+      B = B,
+      select_coef = select_coef,
+      constraints = constraints,
+      type = type,
+      start_gamma = gamma_slowing
     )
-    return(t)
+
   },
   SIMPLIFY = FALSE,
   USE.NAMES = TRUE,
@@ -358,6 +353,10 @@ results_tbl = results_tbl %>%
     p_value_TCT_common = purrr::map_dbl(
       .x = summary_TCT_common, 
       .f = "p_value"
+    ),
+    estimate = purrr::map_dbl(
+      .x = TCT_meta_common_fit,
+      .f = coef
     ),
     conf_int_TCT_common_lower = purrr::map_dbl(
       .x = summary_TCT_common,
