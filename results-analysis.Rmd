@@ -370,6 +370,10 @@ results_tbl_inference = results_tbl %>%
       (gamma_slowing >= conf_int_TCT_common_lower),
     covered_bs = (gamma_slowing <= conf_int_TCT_common_upper_bs) &
       (gamma_slowing >= conf_int_TCT_common_lower_bs),
+    # Determine the conclusion based on a bootstrap-based CI test.
+    rejection_bs = !((1 <= conf_int_TCT_common_upper_bs) &
+                       (1 >= conf_int_TCT_common_lower_bs)
+    ),
     # Determine whether the null has been rejected
     rejection = p_value_TCT_common <= 0.05,
     rejection_mmrm = p_value_mmrm <= 0.05
@@ -384,6 +388,7 @@ results_tbl_inference = results_tbl %>%
   summarise(
     coverage = mean(covered),
     coverage_bs = mean(covered_bs),
+    rejection_rate_bs = mean(rejection_bs),
     rejection_rate = mean(rejection),
     rejection_rate_mmrm = mean(rejection_mmrm)
   ) %>%
@@ -539,6 +544,58 @@ results_tbl_inference %>%
   facet_grid(rows = "gamma_slowing", scales = "free")
 ```
 
+Add plot with type 1 error and power
+
+```{r}
+results_tbl_inference %>%
+  filter(constraints == FALSE, inference == "least-squares", drop_first_occasions == 0, progression == "normal") %>%
+  ggplot(aes(
+    x = n,
+    y = rejection_rate_bs,
+    color = `Follow Up`,
+    shape = `Follow Up`,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+  geom_point(
+    data = results_tbl_inference %>%
+      filter(constraints == FALSE, inference == "least-squares", drop_first_occasions == 0, progression == "normal"),
+    mapping = aes(
+      x = n,
+      y = rejection_rate_mmrm,
+      shape = `Follow Up`
+    ),
+    alpha = 0.5, 
+    color = "gray"
+  ) +
+  geom_line(
+    data = results_tbl_inference %>%
+      filter(constraints == FALSE, inference == "least-squares", drop_first_occasions == 0, progression == "normal"),
+    mapping = aes(
+      x = n,
+      y = rejection_rate_mmrm,
+      linetype = progression
+    ),
+    alpha = 0.75,
+    color = "gray"
+  ) +
+  geom_hline(
+    # Add horizontal lines to indicate the 0.05 nominal error rate in the null
+    # settings.
+    data = tidyr::expand_grid(
+      rejection_rate = 0.05,
+      drop_first_occasions = 0,
+      gamma_slowing = 1
+    ),
+    mapping = aes(yintercept = rejection_rate),
+    alpha = 0.5
+  ) +
+  xlab("Sample size, n") +
+  ylab(latex2exp::TeX("Empirical Power or Type 1 Error Rate")) +
+  scale_linetype(name = "Progression Rate") +
+  facet_grid(gamma_slowing ~ ., scales = "free")
+```
 
 
 # Summary
