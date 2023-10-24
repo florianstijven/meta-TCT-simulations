@@ -33,14 +33,14 @@ ref_means_list = list(
 # data. We consider all possible combinations of trial settings. 
 settings = tidyr::expand_grid(
   progression = c("normal", "fast"),
-  gamma_slowing = c(1, 0.75, 0.5),
+  gamma_slowing = c(1, 0.9, 0.75, 0.5),
   n = c(50, 200, 500, 1000),
   time_points = list(c(0, 6, 12, 18, 24),
                      c(0, 6, 12, 18, 24, 36))
 ) 
 
 # Number of independent replications for each setting.
-N_trials = 1e3
+N_trials = 5e2
 # Set the seed for reproducibility.
 set.seed(1)
 
