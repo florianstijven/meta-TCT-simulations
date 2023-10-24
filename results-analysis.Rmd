@@ -531,6 +531,7 @@ results_tbl_inference %>%
   ) +
   xlab("Sample size, n") +
   ylab(latex2exp::TeX("Empirical Coverage")) +
+  ylim(c(0.80, 1)) +
   scale_linetype(name = "Progression Rate") +
   facet_grid(gamma_slowing ~ `Follow Up`)
 ```
@@ -631,6 +632,7 @@ results_tbl_inference %>%
   ) +
   xlab("Sample size, n") +
   ylab(latex2exp::TeX("Empirical Coverage")) +
+  ylim(c(0.80, 1)) +
   scale_linetype(name = "Progression Rate") +
   facet_grid(rows = "gamma_slowing")
 ```
