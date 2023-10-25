@@ -2,7 +2,7 @@
 #
 #SBATCH --job-name=meta-TCT-simulations
 #SBATCH --ntasks=1 --cpus-per-task=72
-#SBATCH --time=06:20:00
+#SBATCH --time=00:20:00
 #SBATCH --cluster=wice
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH -A lp_doctoralresearch
