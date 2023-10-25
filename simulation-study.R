@@ -2,9 +2,9 @@
 .libPaths()
 args = commandArgs(trailingOnly=TRUE)
 options(RENV_CONFIG_SANDBOX_ENABLED = FALSE)
-print(args)
 Sys.setenv(TZ='Europe/Brussels')
 ncores = as.integer(args[1])
+# Print R-version for better reproducibility.
 print(version)
 # Ensure to the state of packages is up-to-date.
 renv::restore()
@@ -40,9 +40,10 @@ settings = tidyr::expand_grid(
 ) 
 
 # Number of independent replications for each setting.
-N_trials = 2e3
+N_trials = 2
 # Set the seed for reproducibility.
 set.seed(1)
+
 
 #-----
 # We next define a set of helper functions. 
@@ -66,7 +67,7 @@ analyze_mmrm_new = function(data_trial, type, reml = TRUE) {
     control = mmrm::mmrm_control(method = ifelse(reml, "Kenward-Roger", "Satterthwaite"))
   )
   # By default, the actual data set is save into the object returned by
-  # mmmrm::mmrm(). This causes a significant overhead. We therefore manually
+  # mmrm::mmrm(). This causes a significant overhead. We therefore manually
   # remove the data saved into `fit`.
   mmrm_fit$data = NULL
   mmrm_fit$tmb_data = NULL
@@ -75,10 +76,138 @@ analyze_mmrm_new = function(data_trial, type, reml = TRUE) {
   return(mmrm_fit)
 }
 
+# Function to generate the data.
+simulate_data = function(n,
+                         time_points,
+                         ref_means,
+                         trt_means,
+                         vcov,
+                         seed) {
+  # Character vector for naming the various measurement occasions.
+  time_names = paste0("month_", time_points)
+  
+  # Generate data.
+  withr::local_seed(seed)
+  
+  tibble(as_tibble(
+    # Generate data for the control group from a multivariate normal
+    # distribution.
+    mvtnorm::rmvnorm(
+      n = n / 2,
+      mean = ref_means,
+      sigma = vcov
+    ) %>% `colnames<-`(time_names)
+  ),
+  arm = 0L) %>%
+    bind_rows(tibble(# Generate data for the active treatment group.
+      as_tibble(
+        mvtnorm::rmvnorm(
+          n = n / 2,
+          mean = trt_means,
+          sigma = vcov
+        ) %>% `colnames<-`(time_names)
+      ),
+      arm = 1L)) %>%
+    mutate(# Add patient identifier
+      SubjId = 1:n) %>%
+    # Convert the data, generated in a wide format, to the long format.
+    tidyr::pivot_longer(
+      cols = all_of(time_names),
+      names_to = "time_chr",
+      values_to = "outcome"
+    ) %>%
+    # Add an integer variable indicting the measurement occasion. Also add a
+    # categorical variable for each time-arm combination. Except for the
+    # baseline measurement occasion.
+    mutate(
+      time_int = as.integer(stringr::str_remove_all(time_chr, "month_")),
+      arm_time = ifelse(
+        time_int == 0L,
+        "baseline",
+        paste0(
+          arm,
+          ":",
+          stringr::str_pad(
+            time_int,
+            side = "left",
+            pad = "0",
+            width = 2
+          )
+        )
+      )
+    )
+}
+
+# Define function where the data are generated from a multivariate normal
+# distribution and analyzed with the MMRM.
+simulate_and_analyze = function(n,
+                                time_points,
+                                ref_means,
+                                trt_means,
+                                vcov,
+                                seed, 
+                                reml = TRUE) {
+  simulated_data = simulate_data(
+    n = n,
+    time_points = time_points,
+    ref_means = ref_means,
+    trt_means = trt_means,
+    vcov = vcov,
+    seed = seed
+  )
+  analyze_mmrm_new(simulated_data, type = "full", reml = reml)
+}
+
+# Define function where we extract the relevant quantities from the fitted MMRM.
+extract_mmrm = function(mmrm_fitted) {
+  # The p-value for the F-test with approximate degrees of freedom is computed
+  # first.
+  # Compute number of post-randomization measurement occasions.
+  K = (length(coef(mmrm_fitted)) - 1) / 2
+  contrast = matrix(data = 0,
+                    nrow = K,
+                    ncol = length(coef(mmrm_fitted)))
+  contrast[1:K, 1:K] = diag(1, nrow = K)
+  contrast[1:K, (K + 1):(2 * K)] = diag(-1, nrow = K)
+  p = mmrm::df_md(mmrm_fitted, contrast)$p_val
+  
+  # The estimated parameters and corresponding estimated variance-covariance
+  # matrix are extracted.
+  # Compute number of post-randomization measurement occasions.
+  estimates = coef(mmrm_fitted)
+  vcov_mmrm = vcov(mmrm_fitted)
+  # Everyting is returned in a list.
+  return(
+    list(
+      p = p,
+      estimates = estimates,
+      vcov_mmrm = vcov_mmrm
+    )
+  )
+}
+
+# Define function that handles everyhting from simulating the data to extracting
+# the relevant quantities from the MMRM object.
+simulate_to_extract = function(n,
+                               time_points,
+                               ref_means,
+                               trt_means,
+                               vcov,
+                               seed, 
+                               reml = TRUE) {
+  mmrm_fitted = simulate_and_analyze(n,
+                       time_points,
+                       ref_means,
+                       trt_means,
+                       vcov,
+                       seed, 
+                       reml = TRUE)
+  extract_mmrm(mmrm_fitted)
+}
+
 #---------
 
-
-simulated_data_tbl = settings %>%
+settings = settings %>%
   # Group by each row.
   rowwise(everything()) %>%
   # Compute a set of variables that will be useful further on.
@@ -96,136 +225,59 @@ simulated_data_tbl = settings %>%
         y = ref_means,
         xout = gamma_slowing * time_points
       )$y
-    )
+    ),
+    vcov = list(vcov_ref[1:K, 1:K]),
   ) %>%
-  ungroup() %>%
-  # For each row in the original tibble, the data will be generated for N_trial
-  # trials.
-  rowwise(c(
-    "progression",
-    "gamma_slowing",
-    "n",
-    "time_points",
-    "K",
-    "time_points"
-  )) %>%
-  reframe(
-    tibble(as_tibble(
-      # Generate data for the control group from a multivariate normal
-      # distribution.
-      mvtnorm::rmvnorm(
-        n = (n / 2) * N_trials,
-        mean = unlist(ref_means),
-        sigma = vcov_ref[1:K, 1:K]
-      ) %>% `colnames<-`(c(unlist(time_names)))
-    ) ,
-    arm = 0L) %>%
-      bind_rows(tibble(
-        # Generate data for the active treatment group.
-        as_tibble(
-          mvtnorm::rmvnorm(
-            n = (n / 2) * N_trials,
-            mean = unlist(trt_means),
-            sigma = vcov_ref[1:K, 1:K]
-          ) %>% `colnames<-`(c(unlist(time_names)))
-        ),
-        arm = 1L
-      )) %>%
-      mutate(
-        # Add identifier for each generated trial.
-        trial_number = rep(1:N_trials, times = n),
-        SubjId = 1:(n * N_trials)
-      ) %>%
-      # Convert the data, generated in a wide format, to the long format.
-      tidyr::pivot_longer(
-        cols = all_of(time_names),
-        names_to = "time_chr",
-        values_to = "outcome"
-      ) %>%
-      # Add an integer variable indicting the measurement occasion. Also add a
-      # categorical variable for each time-arm combination. Except for the
-      # baseline measurement occasion.
-      mutate(
-        time_int = as.integer(stringr::str_remove_all(time_chr, "month_")),
-        arm_time = ifelse(time_int == 0L,
-                          "baseline",
-                          paste0(
-                            arm,
-                            ":",
-                            stringr::str_pad(
-                              time_int,
-                              side = "left",
-                              pad = "0",
-                              width = 2
-                            )
-                          ))
-      )
-  ) 
-
-# The data are not saved very efficiently. For instance, variables indicating
-# trial characteristics are duplicated for each outcome. Therefore, we construct
-# a tibble where there is one row for each generated data set corresponding to a
-# single trial.
-simulated_data_tbl = simulated_data_tbl %>%
-  group_by(progression, gamma_slowing, n, K, trial_number, time_points) %>%
-  summarise(trial_data = list(pick(
-    c("arm_time", "outcome", "time_int", "SubjId")
-  ))) %>%
   ungroup()
 
-print("Data Simulations Done")
+# Duplicate rows N_trial times. We add a trial identifier which further serves
+# as the seed to generate the trial data.
+settings = settings %>%
+  cross_join(tibble(trial_number = 1:N_trials))
 
 # Fit the MMRM model for each generated data set.
 cl = parallel::makeCluster(ncores)
 parallel::clusterEvalQ(cl, library(TCT))
-results_tbl = simulated_data_tbl %>%
-  mutate(mmrm_fit = parallel::parLapplyLB(
-    cl = cl,
-    X = simulated_data_tbl$trial_data,
-    fun = analyze_mmrm_new,
-    type = "FULL"
-  ))
+parallel::clusterEvalQ(cl, library(dplyr))
+parallel::clusterExport(cl,
+                        c(
+                          "simulate_data",
+                          "analyze_mmrm_new",
+                          "simulate_and_analyze",
+                          "extract_mmrm"
+                        ))
+results_tbl = settings %>%
+  mutate(
+    mmrm_extracted = parallel::clusterMap(
+      cl = cl,
+      n = n,
+      time_points = time_points,
+      ref_means = ref_means,
+      trt_mean = trt_means,
+      vcov = vcov,
+      seed = trial_number,
+      fun = simulate_to_extract
+    )
+  )
+
+# results_tbl is not yet in an easy to process format because the mmrm_extracted
+# variable is a list of lists. We put the list elements into separate variables.
+# We also drop variables that are not used further on.
+results_tbl = results_tbl %>%
+  select(-time_names, -ref_means, -trt_means, -vcov) %>%
+  rowwise(everything()) %>%
+  reframe(
+    tibble(
+      p_value_mmrm = mmrm_extracted$p,
+      vcov_mmrm = list(mmrm_extracted$vcov_mmrm),
+      coef_mmrm = list(mmrm_extracted$estimates)
+    )
+  ) %>% # drop list-valued column.
+  select(-mmrm_extracted)
 
 print(Sys.time() - a)
 print("MMRMs fitted")
 
-# We now no longer need `simulated_data_tbl`. To free up space, the object
-# containing the simulated data is removed.
-rm("simulated_data_tbl")
-
-# Compute p-value based on MMRM for each fitted model.
-results_tbl = results_tbl %>%
-  mutate(p_value_mmrm = sapply(
-    X = mmrm_fit,
-    FUN = function(x) {
-      # Compute number of post-randomization measurement occasions.
-      K = (length(coef(x)) - 1) / 2
-      contrast = matrix(data = 0,
-                        nrow = K,
-                        ncol = length(coef(x)))
-      contrast[1:K, 1:K] = diag(1, nrow = K)
-      contrast[1:K, (K + 1):(2 * K)] = diag(-1, nrow = K)
-      return(mmrm::df_md(x, contrast)$p_val)
-    }
-  ))
-
-# Compute non-linear regression model.
-
-# To save space, we now remove the generated data, and model fit objects. From
-# the latter, we first extract the estimated variance-covariance matrix and
-# estimated coefficients.
-results_tbl = results_tbl %>%
-  mutate(
-    vcov_mmrm = lapply(
-      X = mmrm_fit,
-      FUN = vcov
-    ),
-    coef_mmrm = lapply(
-      X = mmrm_fit,
-      FUN = coef
-    )
-  ) %>%
-  select(-trial_data, -mmrm_fit)
 
 # Apply meta-TCT methodology.
 results_tbl = results_tbl %>%
