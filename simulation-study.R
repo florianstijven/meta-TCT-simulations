@@ -321,16 +321,25 @@ results_tbl$TCT_meta_fit = parallel::clusterMap(
                  interpolation,
                  K,
                  time_points) {
-    TCT_meta(
-      time_points = time_points,
-      exp_estimates = coef_mmrm[K:(2 * K - 2)],
-      ctrl_estimates = coef_mmrm[c(2 * K - 1, 1:(K - 1))],
-      vcov = vcov_mmrm[c(2 * K - 1, 1:(K - 1), K:(2 * K - 2)), c(2 * K - 1, 1:(K - 1), K:(2 * K - 2))],
-      interpolation = interpolation,
-      inference = "wald",
-      B = 0,
-      constraints = constraints
+    # The TCT_meta() function is called within a TryCatch() expression to
+    # prevent the code from failing when one simulation fails. If TCT_meta()
+    # fails, an NA is returned. 
+    out = tryCatch(
+      TCT_meta(
+        time_points = time_points,
+        exp_estimates = coef_mmrm[K:(2 * K - 2)],
+        ctrl_estimates = coef_mmrm[c(2 * K - 1, 1:(K - 1))],
+        vcov = vcov_mmrm[c(2 * K - 1, 1:(K - 1), K:(2 * K - 2)), c(2 * K - 1, 1:(K - 1), K:(2 * K - 2))],
+        interpolation = interpolation,
+        inference = "wald",
+        B = 0,
+        constraints = constraints
+      ),
+      error = function(cond) {
+        return(NA)
+      }
     )
+    return(out)
   },
   SIMPLIFY = FALSE,
   USE.NAMES = TRUE,
@@ -361,6 +370,9 @@ results_tbl$TCT_meta_common_fit = parallel::clusterMap(
                  constraints,
                  B, 
                  gamma_slowing) {
+    # Return NA if TCT_meta_fit is a missing value itself.
+    if (is.na(TCT_meta_fit)) return(NA)
+    
     type = NULL
     if (inference == "score")
       type = "custom"
@@ -393,8 +405,11 @@ print("meta-TCT-common finished")
 # intervals are computed numerically), we first save the summary-object to the
 # tibble.
 results_tbl$summary_TCT_common = parallel::parLapplyLB(cl = cl,
-                                                     X = results_tbl$TCT_meta_common_fit,
-                                                     fun = summary)
+                                                       X = results_tbl$TCT_meta_common_fit,
+                                                       fun = function(x) {
+                                                         if (is.na(x)) return(NA)
+                                                         else return(summary(x))
+                                                       })
 parallel::stopCluster(cl)
 
 print("Common acceleration factors estimated")
@@ -403,54 +418,83 @@ print("Common acceleration factors estimated")
 results_tbl = results_tbl %>%
   mutate(
     p_value_TCT_common = purrr::map_dbl(
-      .x = summary_TCT_common, 
-      .f = "p_value"
+      .x = summary_TCT_common,
+      .f = function(x) {
+        if (is.na(x))
+          return NA
+        else
+          return(x$p_value)
+      }
     ),
-    estimate = purrr::map_dbl(
-      .x = TCT_meta_common_fit,
-      .f = coef
-    ),
+    estimate = purrr::map_dbl(.x = TCT_meta_common_fit,
+                              .f = coef),
     conf_int_TCT_common_lower = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
-        x$gamma_common_ci[1]
+        if (is.na(x))
+          return NA
+        else
+          return(x$gamma_common_ci[1])
       }
     ),
     conf_int_TCT_common_upper = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
-        x$gamma_common_ci[2]
+        if (is.na(x))
+          return NA
+        else
+          return(x$gamma_common_ci[2])
       }
     ),
     se_TCT_common = purrr::map_dbl(
       .x = summary_TCT_common,
-      .f = "gamma_common_se"
+      .f = function(x) {
+        if (is.na(x))
+          return NA
+        else
+          return(x$gamma_common_se)
+      }
     ),
     se_TCT_common_bs = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
-        if (is.null(x$se_bootstrap))
-          return(NA)
-        else
-          return(x$se_bootstrap)
+        if (is.na(x))
+          return NA
+        else {
+          if (is.null(x$se_bootstrap))
+            return(NA)
+          else
+            return(x$se_bootstrap)
+        }
+        
       }
     ),
     conf_int_TCT_common_lower_bs = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
-        if (is.null(x$se_bootstrap))
-          return(NA)
-        else
-          return(x$ci_bootstrap[1])
+        if (is.na(x))
+          return NA
+        else {
+          if (is.null(x$se_bootstrap))
+            return(NA)
+          else
+            return(x$ci_bootstrap[1])
+        }
+        
       }
     ),
     conf_int_TCT_common_upper_bs = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
-        if (is.null(x$se_bootstrap))
-          return(NA)
-        else
-          return(x$ci_bootstrap[2])
+        if (is.na(x))
+          return NA
+        else{
+          if (is.null(x$se_bootstrap))
+            return(NA)
+          else
+            return(x$ci_bootstrap[2])
+        }
+        
       }
     )
   )
