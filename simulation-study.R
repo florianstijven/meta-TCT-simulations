@@ -371,7 +371,7 @@ results_tbl$TCT_meta_common_fit = parallel::clusterMap(
                  B, 
                  gamma_slowing) {
     # Return NA if TCT_meta_fit is a missing value itself.
-    if (is.na(TCT_meta_fit)) return(NA)
+    if (!is.list(TCT_meta_fit)) return(NA)
     
     type = NULL
     if (inference == "score")
@@ -379,17 +379,21 @@ results_tbl$TCT_meta_common_fit = parallel::clusterMap(
     # Some analyses use the bootstrap, and are thus stochastic. We therefore set
     # the seed next to avoid differences depending on the parallel setup.
     set.seed(1)
-    select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit))
-    TCT_meta_common(
-      TCT_Fit = TCT_meta_fit,
-      inference = inference,
-      B = B,
-      select_coef = select_coef,
-      constraints = constraints,
-      type = type,
-      start_gamma = gamma_slowing
+    out = tryCatch(
+      TCT_meta_common(
+        TCT_Fit = TCT_meta_fit,
+        inference = inference,
+        B = B,
+        select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit)),
+        constraints = constraints,
+        type = type,
+        start_gamma = gamma_slowing
+      ),
+      error = function(cond) {
+        return(NA)
+      }
     )
-
+    return(out)
   },
   SIMPLIFY = FALSE,
   USE.NAMES = TRUE,
@@ -404,12 +408,16 @@ print("meta-TCT-common finished")
 # p-value and confidence intervals. Because this can take some time (confidence
 # intervals are computed numerically), we first save the summary-object to the
 # tibble.
-results_tbl$summary_TCT_common = parallel::parLapplyLB(cl = cl,
-                                                       X = results_tbl$TCT_meta_common_fit,
-                                                       fun = function(x) {
-                                                         if (is.na(x)) return(NA)
-                                                         else return(summary(x))
-                                                       })
+results_tbl$summary_TCT_common = parallel::parLapplyLB(
+  cl = cl,
+  X = results_tbl$TCT_meta_common_fit,
+  fun = function(x) {
+    if (is.list(x))
+      return(summary(x))
+    else
+      return(NA)
+  }
+)
 parallel::stopCluster(cl)
 
 print("Common acceleration factors estimated")
@@ -420,10 +428,10 @@ results_tbl = results_tbl %>%
     p_value_TCT_common = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
-        if (is.na(x))
-          return NA
-        else
+        if (is.list(x))
           return(x$p_value)
+        else
+          return(NA)
       }
     ),
     estimate = purrr::map_dbl(.x = TCT_meta_common_fit,
@@ -431,35 +439,35 @@ results_tbl = results_tbl %>%
     conf_int_TCT_common_lower = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
-        if (is.na(x))
-          return NA
-        else
+        if (is.list(x))
           return(x$gamma_common_ci[1])
+        else
+          return(NA)
       }
     ),
     conf_int_TCT_common_upper = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
-        if (is.na(x))
-          return NA
-        else
+        if (is.list(x))
           return(x$gamma_common_ci[2])
+        else
+          return(NA)
       }
     ),
     se_TCT_common = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
-        if (is.na(x))
-          return NA
-        else
+        if (is.list(x))
           return(x$gamma_common_se)
+        else
+          return(NA)
       }
     ),
     se_TCT_common_bs = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
-        if (is.na(x))
-          return NA
+        if (!is.list(x))
+          return(NA)
         else {
           if (is.null(x$se_bootstrap))
             return(NA)
@@ -472,8 +480,8 @@ results_tbl = results_tbl %>%
     conf_int_TCT_common_lower_bs = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
-        if (is.na(x))
-          return NA
+        if (!is.list(x))
+          return(NA)
         else {
           if (is.null(x$se_bootstrap))
             return(NA)
@@ -486,8 +494,8 @@ results_tbl = results_tbl %>%
     conf_int_TCT_common_upper_bs = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
-        if (is.na(x))
-          return NA
+        if (!is.list(x))
+          return(NA)
         else{
           if (is.null(x$se_bootstrap))
             return(NA)
