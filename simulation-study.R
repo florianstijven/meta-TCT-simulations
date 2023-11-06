@@ -434,8 +434,15 @@ results_tbl = results_tbl %>%
           return(NA)
       }
     ),
-    estimate = purrr::map_dbl(.x = TCT_meta_common_fit,
-                              .f = coef),
+    estimate = purrr::map_dbl(
+      .x = TCT_meta_common_fit,
+      .f = function(x) {
+        if (is.list(x))
+          return(coef(x))
+        else
+          return(NA)
+      }
+    ),
     conf_int_TCT_common_lower = purrr::map_dbl(
       .x = summary_TCT_common,
       .f = function(x) {
