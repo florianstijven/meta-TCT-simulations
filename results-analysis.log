@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.8.28)  14 OCT 2023 18:27
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.8.28)  16 NOV 2023 15:18
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -472,48 +472,128 @@ No file results-analysis.toc.
 \tf@toc=\write4
 \openout4 = `results-analysis.toc'.
 
-LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 121.
+LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 131.
 (c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 127.
+(Font)              <10> on input line 138.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 127.
+(Font)              <7> on input line 138.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 127.
+(Font)              <5> on input line 138.
 [1
 
-{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-mathex.enc}]
+{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}]
 
-LaTeX Warning: Reference `fig:data-generating-model-visualization' on page 2 undefined on input line 170.
+LaTeX Warning: Reference `fig:data-generating-model-visualization' on page 2 undefined on input line 184.
 
-LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 184.
+LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 198.
 (c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/lm/ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
-<results-analysis_files/figure-latex/data-generating-model-visualization-1.pdf, id=30, 469.755pt x 325.215pt>
+<results-analysis_files/figure-latex/data-generating-model-visualization-1.pdf, id=32, 469.755pt x 325.215pt>
 File: results-analysis_files/figure-latex/data-generating-model-visualization-1.pdf Graphic file (type pdf)
 <use results-analysis_files/figure-latex/data-generating-model-visualization-1.pdf>
-Package pdftex.def Info: results-analysis_files/figure-latex/data-generating-model-visualization-1.pdf  used on input line 203.
+Package pdftex.def Info: results-analysis_files/figure-latex/data-generating-model-visualization-1.pdf  used on input line 217.
 (pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
-[2{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}] [3 <./results-analysis_files/figure-latex/data-generating-model-visualization-1.pdf>]
+[2{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-mathex.enc}{c:/Users/u0157247/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}] [3 <./results-analysis_files/figure-latex/data-generating-model-visualization-1.pdf>] [4]
 
-! Package amsmath Error: \hat allowed only in math mode.
+LaTeX Warning: Reference `fig:expected-value-estimator' on page 5 undefined on input line 356.
 
-See the amsmath package documentation for explanation.
+
+LaTeX Warning: Reference `fig:data-generating-model-visualization' on page 5 undefined on input line 361.
+
+
+LaTeX Warning: Reference `fig:expected-value-estimator' on page 5 undefined on input line 372.
+
+<results-analysis_files/figure-latex/expected-value-estimator-1.pdf, id=75, 469.755pt x 325.215pt>
+File: results-analysis_files/figure-latex/expected-value-estimator-1.pdf Graphic file (type pdf)
+<use results-analysis_files/figure-latex/expected-value-estimator-1.pdf>
+Package pdftex.def Info: results-analysis_files/figure-latex/expected-value-estimator-1.pdf  used on input line 379.
+(pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
+
+LaTeX Warning: Reference `fig:mse-estimator' on page 5 undefined on input line 383.
+
+<results-analysis_files/figure-latex/mse-estimator-1.pdf, id=76, 469.755pt x 325.215pt>
+File: results-analysis_files/figure-latex/mse-estimator-1.pdf Graphic file (type pdf)
+<use results-analysis_files/figure-latex/mse-estimator-1.pdf>
+Package pdftex.def Info: results-analysis_files/figure-latex/mse-estimator-1.pdf  used on input line 390.
+(pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
+
+LaTeX Warning: Reference `fig:se-estimator' on page 5 undefined on input line 394.
+
+
+LaTeX Warning: Reference `fig:se-estimator' on page 5 undefined on input line 398.
+
+<results-analysis_files/figure-latex/se-estimator-1.pdf, id=77, 469.755pt x 325.215pt>
+File: results-analysis_files/figure-latex/se-estimator-1.pdf Graphic file (type pdf)
+<use results-analysis_files/figure-latex/se-estimator-1.pdf>
+Package pdftex.def Info: results-analysis_files/figure-latex/se-estimator-1.pdf  used on input line 409.
+(pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
+[5] [6 <./results-analysis_files/figure-latex/expected-value-estimator-1.pdf>] [7 <./results-analysis_files/figure-latex/mse-estimator-1.pdf>] [8 <./results-analysis_files/figure-latex/se-estimator-1.pdf>]
+
+LaTeX Warning: Reference `fig:error-rates-meta-tct' on page 9 undefined on input line 432.
+
+
+LaTeX Warning: Reference `fig:error-rates-meta-tct' on page 9 undefined on input line 444.
+
+<results-analysis_files/figure-latex/error-rates-meta-tct-1.pdf, id=124, 469.755pt x 325.215pt>
+File: results-analysis_files/figure-latex/error-rates-meta-tct-1.pdf Graphic file (type pdf)
+<use results-analysis_files/figure-latex/error-rates-meta-tct-1.pdf>
+Package pdftex.def Info: results-analysis_files/figure-latex/error-rates-meta-tct-1.pdf  used on input line 451.
+(pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
+
+LaTeX Warning: Reference `fig:coverage-meta-tct' on page 9 undefined on input line 455.
+
+[9 <./results-analysis_files/figure-latex/error-rates-meta-tct-1.pdf>]
+<results-analysis_files/figure-latex/coverage-meta-tct-1.pdf, id=143, 469.755pt x 325.215pt>
+File: results-analysis_files/figure-latex/coverage-meta-tct-1.pdf Graphic file (type pdf)
+<use results-analysis_files/figure-latex/coverage-meta-tct-1.pdf>
+Package pdftex.def Info: results-analysis_files/figure-latex/coverage-meta-tct-1.pdf  used on input line 472.
+(pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
+[10 <./results-analysis_files/figure-latex/coverage-meta-tct-1.pdf>]
+
+LaTeX Warning: Reference `fig:se-estimator-bootstrap' on page 11 undefined on input line 513.
+
+<results-analysis_files/figure-latex/se-estimator-bootstrap-1.pdf, id=160, 469.755pt x 325.215pt>
+File: results-analysis_files/figure-latex/se-estimator-bootstrap-1.pdf Graphic file (type pdf)
+<use results-analysis_files/figure-latex/se-estimator-bootstrap-1.pdf>
+Package pdftex.def Info: results-analysis_files/figure-latex/se-estimator-bootstrap-1.pdf  used on input line 523.
+(pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
+
+LaTeX Warning: Reference `fig:coverage-bootstrap' on page 11 undefined on input line 527.
+
+<results-analysis_files/figure-latex/coverage-bootstrap-1.pdf, id=161, 469.755pt x 325.215pt>
+File: results-analysis_files/figure-latex/coverage-bootstrap-1.pdf Graphic file (type pdf)
+<use results-analysis_files/figure-latex/coverage-bootstrap-1.pdf>
+Package pdftex.def Info: results-analysis_files/figure-latex/coverage-bootstrap-1.pdf  used on input line 540.
+(pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
+
+LaTeX Warning: Reference `fig:error-rates-bootstrap' on page 11 undefined on input line 545.
+
+<results-analysis_files/figure-latex/error-rates-bootstrap-1.pdf, id=162, 469.755pt x 325.215pt>
+File: results-analysis_files/figure-latex/error-rates-bootstrap-1.pdf Graphic file (type pdf)
+<use results-analysis_files/figure-latex/error-rates-bootstrap-1.pdf>
+Package pdftex.def Info: results-analysis_files/figure-latex/error-rates-bootstrap-1.pdf  used on input line 556.
+(pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
+[11] [12 <./results-analysis_files/figure-latex/se-estimator-bootstrap-1.pdf>] [13 <./results-analysis_files/figure-latex/coverage-bootstrap-1.pdf>] [14 <./results-analysis_files/figure-latex/error-rates-bootstrap-1.pdf>] [15]
+
+! Package array Error: Empty preamble: `l' used.
+
+See the array package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.277   \$E\{(\hat{\gamma}
-                           - \gamma\_0)\^{}2 \}. This quantity is estimated ... 
+l.778 \begin{tabular}[t]{}
+                           
 Here is how much of TeX's memory you used:
- 11144 strings out of 477148
- 172787 string characters out of 5811047
- 1933248 words of memory out of 5000000
- 31972 multiletter control sequences out of 15000+600000
- 628825 words of font info for 90 fonts, out of 8000000 for 9000
+ 11260 strings out of 477148
+ 177507 string characters out of 5811047
+ 1935248 words of memory out of 5000000
+ 32046 multiletter control sequences out of 15000+600000
+ 632125 words of font info for 92 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 75i,8n,79p,379b,455s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,21n,79p,689b,625s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 !  ==> Fatal error occurred, no output PDF file produced!
