@@ -15,18 +15,19 @@ library(dplyr)
 a = Sys.time()
 # Variance-Covariance matrix as reported by Raket (2022, doi: 10.1002/sim.9581) in
 # section 5.1.
-vcov_ref = matrix(c(45.1, 40.0, 45.1, 54.9, 53.6, 60.8,
-                    40.0, 57.8, 54.4, 66.3, 64.1, 74.7,
-                    45.1, 54.4, 72.0, 80.0, 77.6, 93.1, 
-                    54.9, 66.3, 80.0, 109.8, 99.3, 121.7,
-                    53.6, 64.1, 77.6, 99.3, 111.4, 127.8, 
-                    60.8, 74.7, 93.1, 121.7, 127.8, 191.4), nrow = 6, byrow = TRUE)
+vcov_ref = matrix(c(45.1, 40.0, 45.1, 54.9, 53.6, 53.6, 60.8,
+                    40.0, 57.8, 54.4, 66.3, 64.1, 64.1, 74.7,
+                    45.1, 54.4, 72.0, 80.0, 77.6, 77.6, 93.1, 
+                    54.9, 66.3, 80.0, 109.8, 99.3, 99.3, 121.7, 
+                    53.6, 64.1, 77.6, 99.3, 111.4, 99.1, 127.8,
+                    53.6, 64.1, 77.6, 99.3, 99.1, 111.4, 127.8,
+                    60.8, 74.7, 93.1, 121.7, 127.8, 127.8, 191.4), nrow = 7, byrow = TRUE)
 # Mean values as reported by Raket (2022): `normal`. The `fast` vector
 # represents an additional scenario where progression goes faster and/or the
 # study duration is longer.
 ref_means_list = list(
-  normal = c(19.6, 20.5, 20.9, 22.7, 23.8, 27.4),
-  fast = c(18, 19.7, 20.9, 22.7, 24.7, 29.2)
+  normal = c(19.6, 20.5, 20.9, 22.7, 23.8, 25.8, 27.4),
+  fast = c(18, 19.7, 20.9, 22.7, 24.7, 27.1, 29.2)
 )
 
 # In the settings data frame, we define all settings for which we will generate
@@ -35,12 +36,23 @@ settings = tidyr::expand_grid(
   progression = c("normal", "fast"),
   gamma_slowing = c(1, 0.9, 0.75, 0.5),
   n = c(50, 200, 500, 1000),
-  time_points = list(c(0, 6, 12, 18, 24),
-                     c(0, 6, 12, 18, 24, 36))
+  time_points_chr = c("24 Months", 
+                      "36 Months", 
+                      "36 Months exlcuding Month 30")
 ) 
 
+settings = settings %>%
+  left_join(tibble(
+    time_points_chr = c("24 Months",
+                        "36 Months",
+                        "36 Months exlcuding Month 30"),
+    time_points = list(c(0, 6, 12, 18, 24),
+                       c(0, 6, 12, 18, 24, 30, 36),
+                       c(0, 6, 12, 18, 24, 36))
+  ))
+
 # Number of independent replications for each setting.
-N_trials = 5e3
+N_trials = 200
 # Set the seed for reproducibility.
 set.seed(1)
 
@@ -214,10 +226,13 @@ settings = settings %>%
   summarise(
     # The number of measurement occasions.
     K = length(time_points),
+    # Numbers for the measurement occasions that are included, starting from 1
+    # for the first measurement occasion.
+    K_vec = list((time_points %/% 6) + 1),
     # Character vector for the naming the various measurement occasions.
     time_names = list(paste0("month_", time_points)),
     # Mean vector in the reference group.
-    ref_means = list(ref_means_list[[progression]][1:K]),
+    ref_means = list(ref_means_list[[progression]][K_vec]),
     # Mean vector in the active treatment group.
     trt_means = list(
       spline(
@@ -226,7 +241,7 @@ settings = settings %>%
         xout = gamma_slowing * time_points
       )$y
     ),
-    vcov = list(vcov_ref[1:K, 1:K]),
+    vcov = list(vcov_ref[K_vec, K_vec]),
   ) %>%
   ungroup()
 
@@ -284,9 +299,9 @@ results_tbl = results_tbl %>%
   # We first add additional columns that specify the inference options.
   cross_join(
     tidyr::expand_grid(
-      drop_first_occasions = 0:1,
+      drop_first_occasions = 0,
       constraints = c(TRUE, FALSE),
-      interpolation = c("spline"),
+      interpolation = c("spline", "linear"),
       inference = c("wald", "score", "least-squares"),
       B = c(0, 5e2)
     ) %>%
@@ -297,8 +312,8 @@ results_tbl = results_tbl %>%
         drop_first_occasions > 0 & inference == "score"
       ))
   ) %>%
-  # We only use the bootstrap for least-squares with a sample size of 50,
-  # 200 and 5000; re-estimation under constraints; no measurements dropped.
+  # We only use the bootstrap for least-squares with nore-estimation under 
+  # constraints and no measurements dropped.
   filter(!(B == 5e2 &
              (constraints | drop_first_occasions == 1 | inference != "least-squares" | progression == "fast"))) %>%
   # If for a given setting, we consider bootstrap replications, then we can
@@ -521,7 +536,15 @@ results_tbl = results_tbl %>%
 # version of the simulation results that will be used for further processing. In
 # the latter data set, only necessary information for processing is included.
 results_lean_tbl = results_tbl %>%
-  select(-vcov_mmrm, -coef_mmrm, -TCT_meta_fit, -summary_TCT_common, -TCT_meta_common_fit, -time_points)
+  select(
+    -vcov_mmrm,
+    -coef_mmrm,
+    -TCT_meta_fit,
+    -summary_TCT_common,
+    -TCT_meta_common_fit,
+    -time_points, 
+    -K_vec
+  )
 
 saveRDS(object = results_tbl, file = "results_simulation_full.rds")
 saveRDS(object = results_lean_tbl, file = "results_simulation_lean.rds")
