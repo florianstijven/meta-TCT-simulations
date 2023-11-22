@@ -325,16 +325,27 @@ median *estimated standard error*.
 # Compute all summary measures regarding the performance of the estimators.
 results_tbl_estimation = results_tbl %>%
   # Group by all simulation scenarios.
-  group_by(progression, gamma_slowing, n, K, drop_first_occasions, constraints, inference) %>%
-  summarise(mean_estimate = mean(estimate),
-            mean_estimate_se = sd(estimate) / sqrt(5e3),
-            empirical_sd = sd(estimate),
-            mean_se = mean(se_TCT_common),
-            median_se = median(se_TCT_common),
-            mean_se_bs = mean(se_TCT_common_bs),
-            median_se_bs = median(se_TCT_common_bs),
-            mse = mean((estimate - gamma_slowing)**2)) %>%
-  mutate("Follow Up" = ifelse(K == 6, "36 Months", "24 Months"))
+  group_by(
+    progression,
+    gamma_slowing,
+    n,
+    time_points_chr,
+    drop_first_occasions,
+    constraints,
+    inference, 
+    interpolation
+  ) %>%
+  summarise(
+    mean_estimate = mean(estimate),
+    mean_estimate_se = sd(estimate) / sqrt(5e3),
+    empirical_sd = sd(estimate),
+    mean_se = mean(se_TCT_common),
+    median_se = median(se_TCT_common),
+    mean_se_bs = mean(se_TCT_common_bs),
+    median_se_bs = median(se_TCT_common_bs),
+    mse = mean((estimate - gamma_slowing) ** 2)
+  ) %>%
+  rename("Follow Up" = time_points_chr)
 ```
 
 In Figure \@ref(fig:expected-value-estimator), the mean of the estimated
@@ -367,8 +378,9 @@ facet_lims_tbl = tibble(
   n = NA,
   gamma_slowing = rep(c(0.5, 0.75, 0.9, 1), each = 2),
   mean_estimate = c(0.45, 0.55, 0.70, 0.80, 0.85, 0.95, 0.95, 1.05),
-  `Follow Up` = NA, 
-  progression = NA
+  `Follow Up` = c("24 Months"), 
+  progression = NA,
+  interpolation = NA
 )
 results_tbl_estimation %>%
   filter(
@@ -379,7 +391,7 @@ results_tbl_estimation %>%
         aes(
           x = n,
           y = mean_estimate,
-          color = `Follow Up`,
+          color = interpolation,
           linetype = progression
         )
       ) +
@@ -398,7 +410,7 @@ results_tbl_estimation %>%
       xlab("Sample size, n") +
       ylab(latex2exp::TeX("E(\\hat{\\gamma})")) +
       scale_linetype(name = "Progression Rate") +
-      facet_grid(gamma_slowing ~ ., scales = "free"
+      facet_grid(gamma_slowing ~ `Follow Up`, scales = "free"
       ) +
   scale_color_brewer(type = "qual", palette = 2)
 
@@ -426,7 +438,7 @@ results_tbl_estimation %>%
   ggplot(aes(
     x = n,
     y = mse,
-    color = `Follow Up`,
+    color = `interpolation`,
     linetype = progression
   )) +
   geom_point() +
@@ -434,7 +446,7 @@ results_tbl_estimation %>%
   scale_y_continuous(trans = "log10", name = "MSE") +
   scale_x_continuous(trans = "log10", name = "Sample Size, n") +
   scale_linetype(name = "Progression Rate") +
-  facet_grid(gamma_slowing ~ .) +
+  facet_grid(gamma_slowing ~ `Follow Up`) +
   scale_color_brewer(type = "qual", palette = 2)
 ```
 
@@ -462,7 +474,7 @@ results_tbl_estimation %>%
   ggplot(aes(
     x = n,
     y = empirical_sd,
-    color = `Follow Up`,
+    color = interpolation,
     linetype = progression
   )) +
   geom_point() +
@@ -516,10 +528,11 @@ results_tbl_inference = results_tbl %>%
   group_by(progression,
            gamma_slowing,
            n,
-           K,
+           time_points_chr,
            drop_first_occasions,
            constraints,
-           inference) %>%
+           inference,
+           interpolation) %>%
   summarise(
     coverage = mean(covered),
     coverage_bs = mean(covered_bs),
@@ -527,7 +540,7 @@ results_tbl_inference = results_tbl %>%
     rejection_rate = mean(rejection),
     rejection_rate_mmrm = mean(rejection_mmrm)
   ) %>%
-  mutate("Follow Up" = ifelse(K == 6, "36 Months", "24 Months"))
+  rename("Follow Up" = time_points_chr)
 ```
 
 In Figure \@ref(fig:error-rates-meta-tct), we graph the empirical type 1 error
@@ -556,7 +569,7 @@ results_tbl_inference %>%
     aes(
       x = n,
       y = rejection_rate,
-      color = `Follow Up`,
+      color = interpolation,
       shape = `Follow Up`,
       linetype = progression
     )
@@ -626,7 +639,7 @@ results_tbl_inference %>%
   ggplot(aes(
     x = n,
     y = coverage,
-    color = `Follow Up`,
+    color = interpolation,
     linetype = progression
   )) +
   geom_point() +
@@ -701,7 +714,7 @@ results_tbl_estimation %>%
   ggplot(aes(
     x = n,
     y = empirical_sd,
-    color = `Follow Up`,
+    color =interpolation,
     linetype = progression
   )) +
   geom_point() +
@@ -720,7 +733,7 @@ results_tbl_estimation %>%
   scale_y_continuous(trans = "log10", name = "Empirical SD and median estimated SE") +
   scale_x_continuous(trans = "log10", name = "Sample Size, n") +
   scale_linetype(name = "Progression Rate", drop = FALSE) +
-  facet_grid(gamma_slowing ~ .) +
+  facet_grid(gamma_slowing ~ `Follow Up`) +
   scale_color_brewer(type = "qual", palette = 2)
 ```
 
@@ -747,7 +760,7 @@ results_tbl_inference %>%
   ggplot(aes(
     x = n,
     y = coverage_bs,
-    color = `Follow Up`,
+    color = interpolation,
     linetype = progression
   )) +
   geom_point() +
@@ -763,7 +776,7 @@ results_tbl_inference %>%
   ylab(latex2exp::TeX("Empirical Coverage")) +
   ylim(c(0.80, 1)) +
   scale_linetype(name = "Progression Rate", drop = FALSE) +
-  facet_grid(rows = "gamma_slowing") +
+  facet_grid(gamma_slowing ~ `Follow Up`) +
   scale_color_brewer(type = "qual", palette = 2)
 ```
 
@@ -792,7 +805,7 @@ results_tbl_inference %>%
     aes(
       x = n,
       y = rejection_rate_bs,
-      color = `Follow Up`,
+      color = interpolation,
       shape = `Follow Up`,
       linetype = progression
     )
@@ -841,7 +854,7 @@ results_tbl_inference %>%
   xlab("Sample size, n") +
   ylab(latex2exp::TeX("Empirical Power or Type 1 Error Rate")) +
   scale_linetype(name = "Progression Rate", drop = FALSE) +
-  facet_grid(gamma_slowing ~ ., scales = "free") +
+  facet_grid(gamma_slowing ~ `Follow Up`, scales = "free") +
   scale_color_brewer(type = "qual", palette = 2)
 ```
 

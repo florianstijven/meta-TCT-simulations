@@ -38,21 +38,21 @@ settings = tidyr::expand_grid(
   n = c(50, 200, 500, 1000),
   time_points_chr = c("24 Months", 
                       "36 Months", 
-                      "36 Months exlcuding Month 30")
+                      "36(-30) Months")
 ) 
 
 settings = settings %>%
   left_join(tibble(
     time_points_chr = c("24 Months",
                         "36 Months",
-                        "36 Months exlcuding Month 30"),
+                        "36(-30) Months"),
     time_points = list(c(0, 6, 12, 18, 24),
                        c(0, 6, 12, 18, 24, 30, 36),
                        c(0, 6, 12, 18, 24, 36))
   ))
 
 # Number of independent replications for each setting.
-N_trials = 200
+N_trials = 5e3
 # Set the seed for reproducibility.
 set.seed(1)
 
