@@ -64,7 +64,7 @@ after baseline. The estimated means at the corresponding time points are
 $$(19.6, 20.5, 20.9, 22.7, 23.8, 27.4)'.$$ These data represent
 follow-up with non-equally spaced measurement occasions and a "normal"
 progression rate. To also allow for equally-spaced measurement occasions
-in our DGM - with possibly faster progression - we consider the
+in our DGM - with possibly faster progression - we start from the
 following two mean profiles.
 
 [^2]: 13-item cognitive subscale of the Alzheimer's disease assessment
@@ -91,7 +91,7 @@ measurement patterns:
 
 The covariance matrix for the "36 Months" pattern is
 
-$$\begin{pmatrix}
+$$ \begin{pmatrix}
 45.1 & 40.0 & 45.1 & 54.9 & 53.6 & 53.6 & 60.8 \\
 40.0 & 57.8 & 54.4 & 66.3 & 64.1 & 64.1 & 74.7 \\
 45.1 & 54.4 & 72.0 & 80.0 & 77.6 & 77.6 & 93.1 \\
@@ -99,7 +99,7 @@ $$\begin{pmatrix}
 53.6 & 64.1 & 77.6 & 99.3 & 111.4 & 99.1 & 127.8 \\
 53.6 & 64.1 & 77.6 & 99.3 & 99.1 & 111.4 & 127.8 \\
 60.8 & 74.7 & 93.1 & 121.7 & 127.8 & 127.8& 191.4
-\end{pmatrix}.$$
+\end{pmatrix}. $$
 
 This is the estimated covariance matrix from the ADNI patients augmented
 with an extra row and column for the measurement at 30 months. The
@@ -139,16 +139,16 @@ We consider a set of DGMs where the following elements are varied to
 represent a range of realistic scenarios:
 
 -   **Progression Rate**. We consider a *normal* and *fast* progression
-    rate. The corresponding mean vectors are presented in the above table.
-    Alternatively, the fast
-    progression scenario could also be interpreted as corresponding to
-    trials where patients have been followed up longer.
+    rate. The corresponding mean vectors are presented in the above
+    table. Alternatively, the fast progression scenario could also be
+    interpreted as corresponding to trials where patients have been
+    followed up longer.
 -   **Treatment Effect**. We consider 4 different (proportional slowing)
     treatment effects, that is, $\gamma \in \{1, 0.90, 0.75, 0.50 \}$.
 -   **Sample Size**. We consider 4 different total sample sizes,
     $n \in \{50, 200, 500, 1000\}$. Note that $n$ is the *total* sample
     size, and we assume $1:1$ randomization in all settings.
--   **Measurement Pattern**. We consider the three scenarios that were 
+-   **Measurement Pattern**. We consider the three scenarios that were
     explained before: "24 Months", "36 Months", and "36(-30) Months".
 
 ```{r data-generating-model-visualization, fig.cap = "Plot of the trajectories used in the DGMs. An acceleration factor equal to 1 corresponds to no treatment effect. The dots correspond to measurement occasions while the lines between dots are based on interpolation."}
@@ -253,7 +253,7 @@ outcome is then modeled as $$E(Y_{t_j} | Z = z) = \begin{cases}
 \end{cases}
 \; \forall \; j \in \{ 1, ..., K \}$$ and
 $E(Y_{0} | Z = 0) = E(Y_{0} | Z = 1) = \alpha_0$. This essentially means
-that we have a parameter for each measurement occasion-treatment
+that we have a mean parameter for each measurement occasion-treatment
 combination, except for baseline. The **covariance matrix** is assumed
 to be unstructured, but common for both treatment groups. For all
 simulation scenarios, this is a correctly specified model.
@@ -264,8 +264,8 @@ parameter estimates and corresponding variance-covariance matrix are
 obtained by the `coef()` and `vcov()` methods, respectively. These two
 components are the only inputs required for the meta TCT methods. The
 hypothesis test for
-$$H_0: \alpha_j = \beta_j \; \forall \; j \in \{ 1, ..., K \} $$ is
-based on the F-test with the Kenward-Roger approximate degrees of
+$$H_0: \alpha_j = \beta_j \; \forall \; j \in \{ 1, ..., K \} $$ 
+in the MMRM is based on the F-test with the Kenward-Roger approximate degrees of
 freedom.
 
 ## Meta TCT
@@ -286,8 +286,9 @@ model, $$ \begin{split}
 \end{split} $$ where
 $\boldsymbol{f_0}(\gamma \cdot \boldsymbol{t}; \boldsymbol{\alpha}) = (f_0(\gamma \cdot t_1; \boldsymbol{\alpha}), ..., f_0(\gamma \cdot t_K; \boldsymbol{\alpha}))'$.
 The second equality is a consequence of $f_0$ being an interpolating
-function. While this function is a natural cubic splines interpolation in the
-DGM, we consider natural cubic spline and linear interpolation for estimation.
+function. While this function is a natural cubic splines interpolation
+in the DGM, we consider natural cubic spline and linear interpolation
+for estimation.
 
 The non-linear regression function is fitted using non-linear
 generalized least squares. Hence, the estimator for
@@ -333,12 +334,12 @@ each setting, we consider $5000$ replications. For estimating the
 empirical coverage of the 95% CIs and the empirical type 1 errors, this
 leads to a standard error of
 $\frac{\sqrt{0.05 \cdot 0.95}}{\sqrt{5000}} = 0.003$ assuming nominal
-coverage and a nominal type 1 error. This is sufficiently precise for the 
-purposes of this simulation study.
+coverage and a nominal type 1 error. This is sufficiently precise for
+the purposes of this simulation study.
 
 In this section, we only present the results for the NL-GLS version of
-meta TCT. In the Appendix, the
-results for other estimators are presented in an interactive table.
+meta TCT. In the Appendix, the results for other estimators are
+presented in an interactive table.
 
 The analyses and the presentation of the simulation results are divided
 into two parts. First, we present the results regarding estimation of
@@ -401,35 +402,36 @@ results_tbl_estimation = results_tbl %>%
 ```
 
 In Figure \@ref(fig:expected-value-estimator), the mean of the estimated
-acceleration factors is presented across a set of scenarios. In all but one
-scenario with cubic interpolation, the bias decreases to almost 0 as the total
-sample size increases to $1000$. This does not hold up only for the scenario
+acceleration factors is presented across a set of scenarios. For cubic
+interpolation, the bias decreases to almost 0 as the total sample size increases
+to $1000$ in all but one scenario. This does not hold up only for the scenario
 with $\gamma = 0.90$, normal progression and 36(-30) months of follow up. A
 possible explanation is that - looking at Figure
 \@ref(fig:data-generating-model-visualization) - the estimated mean at 36 months
 in the experimental group is mapped into a time interval with no measurement
 occasions nearby; taking into account that there is no measurement at 30 months
 in this scenario. This time mapping is therefore rather sensitive to the
-interpolation method. In contrast, time mappings into the $[0, 24]$ interval are
-expected to be less sensitive to the interpolation approach. This also explains
-why there is no bias is the corresponding scenario with only 24 months of follow
-up.
+interpolation method. 
+This is corroborated by the fact that there is no bias in the corresponding scenarios with 24 or 36 months of follow up. 
 
-The estimator with linear interpolation exhibits in some settings a bias that
-does not decrease to zero. A small amount of bias is expected because
-this estimator uses a slightly misspecified model. Indeed, the data are
-generated under cubic spline interpolation instead of linear interpolation.
 
-In any case, the bias is generally smaller than 0.05 when we use the "correct"
-interpolation method: cubic spline interpolation. However, the correct
-interpolation method is in principle not identifiable. Using cubic spline
-interpolation, there is only one scenario with a bias larger than 0.05: $\gamma = 0.5$,
-normal progression, and 24 months of follow up.
+The estimator with linear interpolation exhibits in some settings a bias
+that does not decrease to zero. A small amount of bias is expected here
+because this estimator uses a slightly misspecified model. Indeed, the
+data are generated under cubic spline interpolation instead of linear
+interpolation.
 
-Figure \@ref(fig:expected-value-estimator) also shows that, when there is bias,
-the bias is smaller for the fast progression rate as compared to the normal
-progression rate. The bias also tends to be smaller when there are more
-measurement occasions.
+In any case, the bias is generally smaller than 0.05 when we use the
+"correct" interpolation method: cubic spline interpolation. However, the
+correct interpolation method is in principle not identifiable. Using
+cubic spline interpolation, there is only one scenario with a bias
+larger than 0.05: $\gamma = 0.5$, normal progression, and 24 months of
+follow up.
+
+Figure \@ref(fig:expected-value-estimator) also shows that, when there
+is bias, the bias is smaller for the fast progression rate as compared
+to the normal progression rate. The bias also tends to be smaller when
+there are more measurement occasions.
 
 ```{r expected-value-estimator, fig.cap = "Graphs of the means of the estimated acceleration factors across a set of simulation settings. The presented results are based on the NL-GLS version of meta TCT. The rows correspond to the true acceleration factor. In each subplot, a black horizontal line represents the true acceleration factor and gray horizontal lines represent the 0.05-margin around the true value. The maximum standard errors of the mean for a sample size of 50, 200, 500, and 1000 are 0.027, 0.003, 0.002, and 0.001, respectively"}
 # Define dummy tibble that allows us to set the axis limits in each facet
@@ -482,11 +484,11 @@ results_tbl_estimation %>%
 #             min_mean_se = min(mean_estimate_se))
 ```
 
-In Figure \@ref(fig:mse-estimator), the MSE of the estimator for the common
-acceleration factor is presented across the same set of scenarios as before. As
-expected, the MSE decreases as a function of the sample size. Moreover, a longer
-follow up leads to a smaller MSE. The MSE also tends to be smaller for fast
-progression in small sample sizes.
+In Figure \@ref(fig:mse-estimator), the MSE of the estimator for the
+common acceleration factor is presented across the same set of scenarios
+as before. As expected, the MSE decreases as a function of the sample
+size. Moreover, a longer follow up leads to a smaller MSE. In small sample sizes, the MSE is considerably smaller for fast progression than for normal
+progression.
 
 ```{r mse-estimator, fig.cap = "Graphs of the MSEs for the estimator of the common accleration factor across a set of simulation settings. The presented results are based on the NL-GLS version of meta TCT. The rows correspond to the true acceleration factor. Note that both axes are log10-transformed."}
 results_tbl_estimation %>%
@@ -601,17 +603,18 @@ results_tbl_inference = results_tbl %>%
   rename("Follow Up" = time_points_chr)
 ```
 
-In Figure \@ref(fig:error-rates-meta-tct), we graph the empirical type 1 error
-rate and power. The corresponding empirical operating characteristics for the
-F-test in the MMRMs are superimposed in gray. This reveals that the type 1 error
-rate for meta TCT is inflated for the sample sizes between 50 and 500.
-Consequently, the power for the corresponding settings is not well-calibrated.
-For the settings with $n = 1000$, the empirical type 1 error is close to
-nominal, hence, the corresponding empirical powers are well-calibrated and can
-be interpreted as usual. In these scenarios, the power of the meta TCT test is
-larger than or equal to the power of the corresponding F-test in the MMRM. A
-longer follow up also leads to a larger power, which is consistent with the
-previous results.
+In Figure \@ref(fig:error-rates-meta-tct), we graph the empirical type 1
+error rate and power. The corresponding empirical operating
+characteristics for the F-test in the MMRMs are superimposed in gray.
+This reveals that the type 1 error rate for meta TCT is inflated for the
+sample sizes between 50 and 500. Consequently, the power for the
+corresponding settings is not well-calibrated. For the settings with
+$n = 1000$, the empirical type 1 error is close to nominal, hence, the
+corresponding empirical powers are well-calibrated and can be
+interpreted as usual. In these scenarios, the power of the meta TCT test
+is larger than or equal to the power of the corresponding F-test in the
+MMRM. A longer follow up also leads to a larger power, which is
+consistent with the previous results.
 
 The tests presented in Figure \@ref(fig:error-rates-meta-tct) are
 asymptotic. So, poor performance in small samples is not surprising. To
@@ -682,9 +685,9 @@ disappear completely for some scenarios with a sample size of 1000.
 
 There is one scenario where the coverage does not converge to 95% for an
 increasing sample size: the scenario with $\gamma = 0.90$, normal
-progression and 36(-30) months of follow up. This is also the scenario where
-the bias was not zero for a sample size of 1000. The explanation for
-this bias also explains the observed undercoverage.
+progression and 36(-30) months of follow up. This is also the scenario
+where the bias was not zero for a sample size of 1000. The explanation
+for this bias also explains the observed undercoverage.
 
 As mentioned before, the coverage of alternative confidence intervals
 based on a parametric bootstrap is assessed in the next section.
@@ -751,7 +754,7 @@ $$(\hat{\gamma}^b_{\alpha / 2}, \hat{\gamma}^b_{1
 the bootstrap distribution.
 
 To limit the computational burden, we only use $B = 500$ bootstrap
-replications throughout. We also only consider the bootstrap for the
+replications throughout. Also, we also only consider the bootstrap for the
 normal progression scenarios because the largest deviations from nominal
 were observed there.
 
@@ -806,11 +809,11 @@ results_tbl_estimation %>%
 In Figure \@ref(fig:coverage-bootstrap), the empirical coverage rates
 are presented for the percentile confidence intervals. This reveals that
 there is overcoverage which disappears with an increasing sample size.
-For $n = 1000$, coverage is (close to) nominal, except in the scenario with
-$\gamma = 0.90$, normal progression and 36(-30) months of follow up. This is,
-again, the same scenario where we observed bias and non-nominal coverage
-for the standard CIs. So, the same explanation for the observed
-deviation from nominal holds here.
+For $n = 1000$, coverage is (close to) nominal, except in the scenario
+with $\gamma = 0.90$, normal progression and 36(-30) months of follow
+up. This is, again, the same scenario where we observed bias and
+non-nominal coverage for the standard CIs. So, the same explanation for
+the observed deviation from nominal holds here.
 
 These results thus indicate that the parametric bootstrap permits valid,
 but generally conservative, inference in small samples.
@@ -861,8 +864,8 @@ increasing sample size. Second, the empirical power for meta TCT is
 generally similar to the power of the F-tests in the MMRMs. However,
 there two settings where the meta TCT is more powerful:
 
-1. $\gamma = 0.90$ and 36 months follow-up
-2. $\gamma = 0.50$ and $n = 50$.
+1.  $\gamma = 0.90$ and 36 months follow-up
+2.  $\gamma = 0.50$ and $n = 50$.
 
 ```{r error-rates-bootstrap, fig.cap="Graphs of the empirical type 1 error rate and power across a set of simulation settings. The hypothesis tests are based on the percentile confidence intervals for the NL-GLS version of meta TCT. The rows correspond to the true acceleration factor."}
 results_tbl_inference %>%
@@ -933,10 +936,10 @@ results_tbl_inference %>%
 
 # Summary
 
-The results are summarized according to the goals of the simulation study. We
-only looked at the results with the NL-GLS version of meta TCT. A detailed
-analysis of the results with other versions of meta TCT is outside the scope of
-this report.
+The results are summarized according to the goals of the simulation
+study. We only looked at the results with the NL-GLS version of meta
+TCT. A detailed analysis of the results with other versions of meta TCT
+is outside the scope of this report.
 
 *Primary goal: Evaluate finite sample properties of the method, also in
 relation to asymptotic inferential procedures.*
@@ -944,7 +947,7 @@ relation to asymptotic inferential procedures.*
 -   **Bias**
     -   For small sample sizes, the estimator for the acceleration
         factor is in some settings slightly biased. However, this bias
-        is generally within 0.05 units of zero and goes to zero as the
+        is generally within 0.05 units of zero and generally goes to zero as the
         sample size increases to 1000.
     -   If there are time mappings to time points which do not have
         measurement occasions nearby, the estimator could remain biased,
@@ -954,20 +957,21 @@ relation to asymptotic inferential procedures.*
         time points with no observed points nearby.
         -   In these settings, similar issues are observed with the
             empirical coverage of the confidence intervals.
-    -   The "wrong" interpolation method can lead to a small bias, even in large samples.
-        The results show that, when the data are generated with cubic spline
-        interpolation, but the meta TCT estimator uses linear interpolation, there
-        can be a small amount of bias that that does not disappear with an
-        increasing sample size.
+    -   The "wrong" interpolation method can lead to a small bias, even
+        in large samples. The results show that, when the data are
+        generated with cubic spline interpolation, but the meta TCT
+        estimator uses linear interpolation, there can be a small amount
+        of bias that that does not disappear with an increasing sample
+        size.
     -   The bias also generally decreases with
         -   an increasing sample size,
         -   an increasing duration of follow up,
-        -   and an increasing progression rate.
+        -   and a faster progression rate.
 -   **MSE**
     -   The MSE decreases with
         -   an increasing sample size,
         -   an increasing duration of follow up,
-        -   and an increasing progression rate (in small samples).
+        -   and a faster progression rate (in small samples).
 -   **Estimated SE**
     -   The analytic SE estimator underestimates the true SE for the
         small sample sizes. However, this underestimation largely
@@ -991,16 +995,17 @@ relation to asymptotic inferential procedures.*
         the tests based on the parametric bootstrap are conservative.
         -   Tests based on the parametric bootstrap should thus be
             preferred for small sample sizes.
-    -   For a sample size of 1000, the least-squares and parametric bootstrap 
-        tests have an empirical type 1 error that is close to nominal.
+    -   For a sample size of 1000, the least-squares and parametric
+        bootstrap tests have an empirical type 1 error that is close to
+        nominal.
         -   For this sample size, the power of the least-squares test is
             larger than the power of the bootstrap test and the F-test
             in the MMRM.
-    -   There are two general settings where the bootstrap test outperforms the
-        F-test in the MMRM. 
+    -   There are two general settings where the bootstrap test
+        outperforms the F-test in the MMRM.
         -   Small sample size but large treatment effect.
-        -   Small treatment effect and a large number of measurement occasions.
-    
+        -   Small treatment effect and a large number of measurement
+            occasions.
 
 *Secondary goal: Identify settings where the meta TCT methods may yield
 unstable results.*
@@ -1011,7 +1016,7 @@ unstable results.*
         larger, the method is quite stable.
         -   For inference in small samples, the parametric bootstrap
             method should be preferred.
-        -   Stability also depends on many other factors besides sample
+        -   Stability also depends on many other factors besides the sample
             size. For instance,
             -   Whether the assumption of a multivariate normal sampling
                 distribution holds for the given sample size. Most
