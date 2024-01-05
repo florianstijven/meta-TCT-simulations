@@ -3,9 +3,9 @@ title: "Results Simulation Study"
 author: "Florian Stijven"
 date: "`r Sys.Date()`"
 output: 
-  bookdown::html_document2:
-    toc: true
   bookdown::pdf_document2:
+    toc: true
+  bookdown::html_document2:
     toc: true
 bibliography: references.bib
 editor_options: 
@@ -433,7 +433,7 @@ is bias, the bias is smaller for the fast progression rate as compared
 to the normal progression rate. The bias also tends to be smaller when
 there are more measurement occasions.
 
-```{r expected-value-estimator, fig.cap = "Graphs of the means of the estimated acceleration factors across a set of simulation settings. The presented results are based on the NL-GLS version of meta TCT. The rows correspond to the true acceleration factor. In each subplot, a black horizontal line represents the true acceleration factor and gray horizontal lines represent the 0.05-margin around the true value. The maximum standard errors of the mean for a sample size of 50, 200, 500, and 1000 are 0.027, 0.003, 0.002, and 0.001, respectively"}
+```{r expected-value-estimator, fig.cap = "Graphs of the means of the estimated acceleration factors across a set of simulation settings. The presented results are based on the NL-GLS version of meta TCT. The rows correspond to the true acceleration factor while the columns correspond to the measurement patterns. In each subplot, a black horizontal line represents the true acceleration factor and gray horizontal lines represent the 0.05-margin around the true value. The maximum standard errors of the mean for a sample size of 50, 200, 500, and 1000 are 0.027, 0.003, 0.002, and 0.001, respectively"}
 # Define dummy tibble that allows us to set the axis limits in each facet
 # separately.
 facet_lims_tbl = tibble(
@@ -490,7 +490,7 @@ as before. As expected, the MSE decreases as a function of the sample
 size. Moreover, a longer follow up leads to a smaller MSE. In small sample sizes, the MSE is considerably smaller for fast progression than for normal
 progression.
 
-```{r mse-estimator, fig.cap = "Graphs of the MSEs for the estimator of the common accleration factor across a set of simulation settings. The presented results are based on the NL-GLS version of meta TCT. The rows correspond to the true acceleration factor. Note that both axes are log10-transformed."}
+```{r mse-estimator, fig.cap = "Graphs of the MSEs for the estimator of the common accleration factor across a set of simulation settings. The presented results are based on the NL-GLS version of meta TCT. The rows correspond to the true acceleration factor while the columns correspond to the measurement patterns. Note that both axes are log10-transformed."}
 results_tbl_estimation %>%
   filter(constraints == FALSE,
          inference == "least-squares",
@@ -524,7 +524,7 @@ Although inference is not based directly on the estimated standard
 error, the observed *underestimation* for smaller sample sizes would
 lead to issues if the estimated acceleration factor were used in
 meta-analyses. We have therefore also implemented a bootstrap-based
-estimator for the standard error, as presented in the next section.
+estimator for the standard error, as presented in the Section 5.
 
 ```{r se-estimator, fig.cap = "Graphs of the empirical standard deviations and the median estimated standard errors of the estimator for the common acceleration factor across a set of simulation settings. The dots, and connecting lines, represent the empirical standard deviations and the triangles represent the median estimated standard errors. The presented results are based on the NL-GLS version of meta TCT. The rows correspond to the true acceleration factor while the columns correspond to the measurement patterns. Note that both axes are log10-transformed."}
 results_tbl_estimation %>%
@@ -754,7 +754,7 @@ $$(\hat{\gamma}^b_{\alpha / 2}, \hat{\gamma}^b_{1
 the bootstrap distribution.
 
 To limit the computational burden, we only use $B = 500$ bootstrap
-replications throughout. Also, we also only consider the bootstrap for the
+replications throughout. Also, we only consider the bootstrap for the
 normal progression scenarios because the largest deviations from nominal
 were observed there.
 
@@ -818,7 +818,7 @@ the observed deviation from nominal holds here.
 These results thus indicate that the parametric bootstrap permits valid,
 but generally conservative, inference in small samples.
 
-```{r coverage-bootstrap, fig.cap="Graphs of the empirical coverage of the percentile bootstrap confidence intervals for the NL-GLS version of meta TCT. The rows correspond to the true acceleration factor."}
+```{r coverage-bootstrap, fig.cap="Graphs of the empirical coverage of the percentile bootstrap confidence intervals for the NL-GLS version of meta TCT. The rows correspond to the true acceleration factor while the columns correspond to the measurement patterns."}
 results_tbl_inference %>%
   # Change progression from character to factor variable. This ensure that the
   # line types are consistent with the previous graphs.
@@ -867,7 +867,7 @@ there two settings where the meta TCT is more powerful:
 1.  $\gamma = 0.90$ and 36 months follow-up
 2.  $\gamma = 0.50$ and $n = 50$.
 
-```{r error-rates-bootstrap, fig.cap="Graphs of the empirical type 1 error rate and power across a set of simulation settings. The hypothesis tests are based on the percentile confidence intervals for the NL-GLS version of meta TCT. The rows correspond to the true acceleration factor."}
+```{r error-rates-bootstrap, fig.cap="Graphs of the empirical type 1 error rate and power across a set of simulation settings. The hypothesis tests are based on the percentile confidence intervals for the NL-GLS version of meta TCT. The rows correspond to the true acceleration factor while the columns correspond to the measurement patterns."}
 results_tbl_inference %>%
   # Change progression from character to factor variable. This ensure that the
   # line types are consistent with the previous graphs.
