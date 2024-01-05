@@ -116,6 +116,7 @@ results_tbl_estimation %>%
     levels = c("24 Months", "36(-30) Months", "36 Months")),
     scales = "free"
   ) +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation") 
 ggsave(filename = "figures/simulations/bias.png",
        device = "png",
@@ -139,6 +140,7 @@ results_tbl_estimation %>%
   scale_y_continuous(trans = "log10", name = "MSE") +
   scale_x_continuous(trans = "log10", name = "Sample Size, n") +
   scale_linetype(name = "Progression Rate") +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
@@ -173,6 +175,7 @@ results_tbl_estimation %>%
   scale_y_continuous(trans = "log10", name = "Empirical SD and median estimated SE") +
   scale_x_continuous(trans = "log10", name = "Sample Size, n") +
   scale_linetype(name = "Progression Rate") +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
@@ -235,6 +238,7 @@ results_tbl_inference %>%
   xlab("Sample size, n") +
   ylab(latex2exp::TeX("Empirical Power or Type 1 Error Rate")) +
   scale_linetype(name = "Progression Rate") +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
@@ -272,6 +276,7 @@ results_tbl_inference %>%
   ylab(latex2exp::TeX("Empirical Coverage")) +
   ylim(c(0.75, 1)) +
   scale_linetype(name = "Progression Rate") +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
@@ -317,6 +322,7 @@ results_tbl_estimation %>%
   scale_y_continuous(trans = "log10", name = "Empirical SD and median estimated SE") +
   scale_x_continuous(trans = "log10", name = "Sample Size, n") +
   scale_linetype(name = "Progression Rate", drop = FALSE) +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
@@ -359,6 +365,7 @@ results_tbl_inference %>%
   ylab(latex2exp::TeX("Empirical Coverage")) +
   ylim(c(0.80, 1)) +
   scale_linetype(name = "Progression Rate", drop = FALSE) +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
@@ -430,6 +437,7 @@ results_tbl_inference %>%
   xlab("Sample size, n") +
   ylab(latex2exp::TeX("Empirical Power or Type 1 Error Rate")) +
   scale_linetype(name = "Progression Rate", drop = FALSE) +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
@@ -520,10 +528,72 @@ trajectory_observed_tbl %>%
   xlab("Months After Randomization") +
   ylab("Mean Trajectory") +
   theme(legend.position = "bottom") +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid( ~ progression)
 ggsave(filename = "figures/simulations/dgm-mean-trajectories.png",
        device = "png",
        width = double_width,
        height = double_height,
+       units = "cm",
+       dpi = res)
+
+# Consider the "true" trajectories for the problematic setting
+trajectory_interpolated_problematic_tbl = tibble(
+  progression = c("Normal Progression"),
+  gamma_slowing = c(0.9, 1),
+  time_points = list(time_points[-6])
+) %>%
+  rowwise(everything()) %>%
+  summarise(
+    ref_means = ref_means_list[progression],
+    trajectory_interpolated = list(
+      spline(
+        x = time_points,
+        y = ref_means[-6],
+        xout = gamma_slowing * time_grid
+      )$y
+    ),
+    time_grid = list(time_grid)
+  ) %>%
+  ungroup() %>%
+  mutate(treatment = ifelse(gamma_slowing == 1, "Control Treatment", "Active Treatment"))
+
+trajectory_interpolated_problematic_tbl = trajectory_interpolated_problematic_tbl %>%
+  rowwise(everything()) %>%
+  reframe(tibble(
+    trajectory_interpolated = unlist(trajectory_interpolated),
+    time_grid = unlist(time_grid)
+  )) %>%
+  ungroup() %>%
+  mutate(gamma_slowing = as.factor(gamma_slowing))
+
+bind_rows(trajectory_interpolated_problematic_tbl %>%
+            mutate("Measurement Profile" = "36(-30) Months"),
+          trajectory_interpolated_tbl %>%
+            filter(progression == "Normal Progression",
+                   gamma_slowing %in% c(0.9, 1)) %>%
+            mutate("Measurement Profile" = "36 Months")
+          ) %>%
+ggplot(aes(
+  x = time_grid,
+  y = trajectory_interpolated,
+  color = gamma_slowing,
+  linetype = `Measurement Profile`
+)) +
+  geom_line() +
+  scale_x_continuous(breaks = time_points) +
+  scale_color_brewer(type = "qual", 
+                     palette = 6,
+                     name = latex2exp::TeX("Acceleration Factor, \\gamma")) +
+  xlab("Months After Randomization") +
+  ylab("Interpolated Mean Trajectory") +
+  theme(legend.position = "bottom") +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1), 
+        legend.direction = "vertical") +
+  facet_grid( ~ progression)
+ggsave(filename = "figures/simulations/problematic-mean-trajectories.png",
+       device = "png",
+       width = single_width,
+       height = single_height,
        units = "cm",
        dpi = res)
