@@ -72,6 +72,9 @@ results_tbl_inference = results_tbl %>%
   ) %>%
   rename("Follow Up" = time_points_chr)
 
+
+
+
 # Simulation Results with Inference Based on the Least-Squares Criterion ----
 
 ## Properties of the Estimator ----
@@ -431,6 +434,94 @@ results_tbl_inference %>%
                                     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
 ggsave(filename = "figures/simulations/parametric-bootstrap-error-rates.png",
+       device = "png",
+       width = double_width,
+       height = double_height,
+       units = "cm",
+       dpi = res)
+
+
+# Data Generating Mechanism ----
+
+ref_means_list = list(
+  "Normal Progression" = c(19.6, 20.5, 20.9, 22.7, 23.8, 25.8, 27.4),
+  "Fast Progression" = c(18, 19.7, 20.9, 22.7, 24.7, 27.1, 29.2)
+)
+time_points = c(0, 6, 12, 18, 24, 30, 36)
+time_grid = seq(from = 0,
+                to = 36,
+                length.out = 3000)
+dgm_settings = tidyr::expand_grid(
+  progression = c("Normal Progression", "Fast Progression"),
+  gamma_slowing = c(1, 0.9, 0.75, 0.5),
+  time_points = list(time_points)
+)
+trajectory_observed_tbl = dgm_settings %>%
+  rowwise(everything()) %>%
+  summarise(ref_means = ref_means_list[progression],
+            trajectory_points = list(
+              spline(
+                x = time_points,
+                y = ref_means,
+                xout = gamma_slowing * unlist(time_points)
+              )$y
+            )) %>%
+  ungroup() %>%
+  mutate(treatment = ifelse(gamma_slowing == 1, "Control Treatment", "Active Treatment"))
+trajectory_observed_tbl = trajectory_observed_tbl %>%
+  rowwise(everything()) %>%
+  reframe(tibble(
+    trajectory_points = unlist(trajectory_points),
+    time_points = unlist(time_points)
+  )) %>%
+  ungroup() %>%
+  mutate(gamma_slowing = as.factor(gamma_slowing))
+
+trajectory_interpolated_tbl = dgm_settings %>%
+  rowwise(everything()) %>%
+  summarise(
+    ref_means = ref_means_list[progression],
+    trajectory_interpolated = list(
+      spline(
+        x = time_points,
+        y = ref_means,
+        xout = gamma_slowing * time_grid
+      )$y
+    ),
+    time_grid = list(time_grid)
+  ) %>%
+  ungroup() %>%
+  mutate(treatment = ifelse(gamma_slowing == 1, "Control Treatment", "Active Treatment"))
+trajectory_interpolated_tbl = trajectory_interpolated_tbl %>%
+  rowwise(everything()) %>%
+  reframe(tibble(
+    trajectory_interpolated = unlist(trajectory_interpolated),
+    time_grid = unlist(time_grid)
+  )) %>%
+  ungroup() %>%
+  mutate(gamma_slowing = as.factor(gamma_slowing))
+
+trajectory_observed_tbl %>%
+  ggplot(aes(x = time_points, y = trajectory_points)) +
+  geom_point(alpha = 0.25) +
+  geom_line(
+    data = trajectory_interpolated_tbl,
+    mapping = aes(
+      x = time_grid,
+      y = trajectory_interpolated,
+      group = interaction(gamma_slowing, treatment, progression),
+      color = gamma_slowing
+    )
+  ) +
+  scale_x_continuous(breaks = time_points) +
+  scale_color_brewer(type = "qual", 
+                     palette = 6,
+                     name = latex2exp::TeX("Acceleration Factor, \\gamma")) +
+  xlab("Months After Randomization") +
+  ylab("Mean Trajectory") +
+  theme(legend.position = "bottom") +
+  facet_grid( ~ progression)
+ggsave(filename = "figures/simulations/dgm-mean-trajectories.png",
        device = "png",
        width = double_width,
        height = double_height,
