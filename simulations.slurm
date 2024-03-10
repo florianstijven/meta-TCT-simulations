@@ -10,7 +10,6 @@
 export OMP_NUM_THREADS=1
 module list
 
-
 Rscript simulation-study.R 71
 
 

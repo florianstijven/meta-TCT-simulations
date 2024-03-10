@@ -1,0 +1,338 @@
+---
+title: "Analysis of the Lighthouse Data"
+author: "Florian Stijven"
+date: "`r Sys.Date()`"
+output: 
+  bookdown::html_document2:
+params: 
+  printcode: FALSE
+---
+
+```{r, echo=FALSE}
+knitr::opts_chunk$set(echo = params$printcode)
+```
+
+
+```{r setup, warning=FALSE, message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(mmrm)
+library(TCT)
+library(gtsummary)
+library(emmeans)
+```
+
+# Introduction
+
+In this report, we analyze the Lighthouse data. These are data from a randomized
+trial in Alzheimer's disease where the ADAS-Cog score has been
+evaluated at pre-determined measurement occasions.
+Additionally, baseline covariates are available; these will be adjusted for to
+increase efficiency.
+
+We first read and explore the data. Next, we fit a mixed model for repeated 
+measures (MMRM) and present the corresponding results. Finally, we use this 
+fitted mixed model to estimate the treatment effect on the time scale with 
+the meta time-component test (meta TCT) methodology.
+
+# Data Exploration
+
+The Lighthouse data are read via the SAS data file. These data are in a
+partially long format because every post-randomization measurement has its own
+row, but the baseline measurement is represented by a column. For applying meta
+TCT, we need to fit a mixed model where the baseline measurement is also treated
+as a response instead of a baseline covariate. Hence, we reformat the data
+accordingly.
+
+```{r}
+# Read the sas-data set.
+data_lighthouse = haven::read_sas("tct_adascog.sas7bdat")
+# The original data are not in the long format because there is no separate row
+# for the ADASCog at baseline. We recode the data into the long format.
+data_lighthouse_long = data_lighthouse %>%
+  # Add baseline value to the change score to get the original ADASCog score.
+  mutate(CHG = CHG + BASVAL) %>%
+  pivot_wider(names_from = "WEEK",
+              values_from = "CHG",
+              names_prefix = "Week_") %>%
+  rename(Week_0 = "BASVAL") %>%
+  pivot_longer(cols = starts_with("Week"),
+               names_to = "Week",
+               values_to = "ADASCog") %>%
+  mutate(Week_int = as.integer(stringr::str_sub(Week, start = 6)))
+```
+
+The baseline covariates and ADAS-Cog scores are summarized by treatment group in 
+Table \@ref(tab:patient-characteristics). By randomization, the distribution of
+baseline covariates should be identical across treatment groups, apart from 
+discrepancies due to sampling variability. This table, however, highlights two
+potential issues:
+
+1. At the post-randomization measurement occasions, there appears to be a
+  discrepancy in the proportion of missing values between the treatment groups. 
+2. There are centers with patients in only one of the treatment groups. This 
+  does not cause problems in our further analyses. Still, this is not ideal. 
+
+```{r patient-characteristics}
+data_lighthouse_long %>%
+  select(-Week_int) %>%
+  pivot_wider(
+    names_from = "Week",
+    values_from = "ADASCog",
+    names_prefix = "ADASCog"
+  ) %>%
+  select(-SUBJID) %>%
+  tbl_summary(by = "TRT", missing_text = "(Missing)") %>%
+  modify_caption("Patient Characteristics by Treatment Group") 
+```
+
+To investigate the discrepancies in the proportions of missing values, we test
+whether the proportions of missing values are equal at each measurement
+occasion. The results are shown in Table \@ref(tab:missingness) and clearly show
+that there are more missing values in the active treatment group. The magnitude
+of missingness is also substantial; 35% of the values are missing at 48 weeks in
+the active treatment group. In what follows, we assume missing at random (MAR).
+A MMRM leads to valid inferences under MAR regardless of the proportion of
+missing values; however, the results could be sensitive to small violations of
+MAR because there are many missing values.
+
+```{r missingness}
+data_lighthouse_long %>%
+  select(-Week_int) %>%
+  pivot_wider(names_from = "Week",
+              values_from = "ADASCog",
+              names_prefix = "ADASCog") %>%
+  mutate(
+    missing_Week_0 = is.na(ADASCogWeek_0),
+    missing_Week_12 = is.na(ADASCogWeek_12),
+    missing_Week_24 = is.na(ADASCogWeek_24),
+    missing_Week_40 = is.na(ADASCogWeek_40),
+    missing_Week_48 = is.na(ADASCogWeek_48)
+  ) %>%
+  select(
+    missing_Week_12,
+    missing_Week_24,
+    missing_Week_40,
+    missing_Week_48,
+    TRT
+  ) %>%
+  tbl_summary(by = "TRT", missing_text = "(Missing)") %>%
+  modify_caption("Comparison of Proportion of Missing Values.") %>%
+  add_p(test = list(all_categorical() ~ "fisher.test")) %>%
+  as_gt()
+```
+
+
+
+In Figure \@ref(fig:spaghetti-plot), the patient-specific longitudinal profiles
+are plotted alongside the treatment specific mean profiles. Note that the mean
+profiles are based on a complete case analysis. This figure reveals (i) that
+there is a lot of between-patient variability and (ii) that there is a treatment
+effect that increases with time.
+
+
+```{r spaghetti-plot, fig.cap="Plot of patient-specific profiles together with the treatment specific mean profiles based on a complete case analysis.", message=FALSE}
+data_lighthouse_long %>%
+  na.omit() %>%
+  ggplot(aes(x = Week_int, y = ADASCog, color = TRT)) +
+  geom_line(aes(group = SUBJID), alpha = 0.25) +
+  geom_point(
+    data = data_lighthouse_long %>%
+      group_by(TRT, Week, Week_int) %>%
+      summarize(mean_score = mean(ADASCog, na.rm = TRUE)) %>%
+      ungroup(),
+    mapping = aes(x = Week_int, y = mean_score),
+    color = "black"
+  ) +
+  geom_line(
+    data = data_lighthouse_long %>%
+      group_by(TRT, Week, Week_int) %>%
+      summarize(mean_score = mean(ADASCog, na.rm = TRUE)) %>%
+      ungroup(),
+    mapping = aes(x = Week_int, y = mean_score, group = TRT),
+    linewidth = 1
+  ) +
+  xlab("Weeks") +
+  ylab("ADASCog score") +
+  scale_color_discrete(name = "Treatment") +
+  theme_bw()
+```
+
+# Mixed Model for Repeated Measures
+
+We now fit a MMRM where the vector of ADAS-Cog scores at baseline, 12, 24, 40,
+and 48 weeks is the response variable. The model is fitted with restricted 
+maximum likelihood. We also add the following baseline covariates in the model:
+
+* `SITEGR1`: This is a categorical variable for the study sites; we include a main
+effect for this variable.
+* `AAPOEN`: This is the APOE Allele status. We include an interaction between the measurement
+occasion and this variable.
+
+In this model, we also assume that the mean ADAS-Cog scores at baseline are 
+equal between both treatment groups. This holds by randomization. The mixed model
+is fitted with `mmrm()` from the `mmrm` R package.
+
+```{r}
+# Fit model for the full ADASCog vector, including the baseline response. For
+# the TCT methods, it is most ideal to assume that the mean response at baseline
+# is equal in both treatment groups. This can be "forced" by setting the
+# treatment variable to "placebo" for all measurements at baseline.
+data_lighthouse_long = data_lighthouse_long %>%
+  mutate(
+    Week = factor(Week),
+    SITEGR1 = factor(SITEGR1),
+    AAPOEN = factor(AAPOEN),
+    TRT = ifelse(Week_int == 0L, "Placebo", TRT),
+    TRT = factor(TRT)
+  )
+mmrm_fit_tct = mmrm(
+  formula = ADASCog ~ Week:TRT + SITEGR1 + AAPOEN*Week +
+    us(Week | SUBJID),
+  data = data_lighthouse_long,
+  method = "Kenward-Roger"
+)
+# summary(mmrm_fit_tct)
+```
+
+We test for a treatment effect using the F-test with the Kenward-Rogers 
+degrees of freedom approximation. 
+
+```{r, message=FALSE}
+anova_mmrm = car::Anova(mmrm_fit_tct)
+anova_mmrm
+row_number_trt = which(rownames(anova_mmrm) ==  "Week:TRT")
+p_trt_effect = anova_mmrm[["Pr(>=F)"]][row_number_trt]
+```
+
+The p-value for the F-test is `r round(p_trt_effect, 3)`. There is thus is a 
+significant treatment effect, but it is unclear how relevant this effect really 
+is. A first step towards interpreting the magnitude of the treatment effect is to look
+at the estimated mean differences in ADAS-Cog scores.
+
+
+Because we have included baseline covariates, we have to carefully define the
+treatment group-specific mean ADAS-Cog scores at the various measurement
+occasions. In what follows, we consider the estimated marginal means (EMMs, also
+known as least-squares means) where the factor levels of the center variable and
+the APOE variable receive weights proportional to their observed frequencies in
+the data. Alternatively, we could use equal weights for these factors, meaning
+that each center and APOE level receives the same weight. Which weights are most
+appropriate depends on whether these factors were controlled by the researchers
+and on the population one wishes to make inferences on. 
+
+The EMMs with proportional weights and the corresponding contrasts by
+measurement occasion are estimated with `emmeans()` and `contrast()` from the
+`emmeans` R package; the corresponding output is printed below. These contrasts
+indicate that the treatment effect increases with time. Still, it remains
+difficult to appreciate the relevance of the observed treatment effect, i.e., is
+a 2 or 3 points mean difference on the ADAS-Cog scale meaningful?
+
+```{r}
+# The least squares means are required for meta TCT.
+ls_means_prop = emmeans::emmeans(mmrm_fit_tct, ~ TRT | Week, weights = "proportional")
+ls_means_prop
+```
+```{r}
+emmeans::contrast(ls_means_prop, "pairwise")
+```
+
+
+# Meta Time-Component Test
+
+In this section, we will use the EMMs from the previous section to estimate the
+treatment effect on the time scale. We use the meta TCT methodology as implemented
+in the `TCT` R package for this. 
+
+In the first step, we need to extract the EMMs at all
+treatment-measurement occasion combinations. We also need the corresponding
+covariance matrix. These quantities can be obtained from the `emmGrid` object that
+was returned by `emmeans()`.
+
+```{r}
+# We first need to extract the LS means for all treatment time combinations and
+# the corresponding covariance matrix.
+ctrl_indices = which(summary(ls_means_prop)$TRT == "Placebo")
+exp_indices = which(summary(ls_means_prop)$TRT == "Active")
+ctrl_estimates = summary(ls_means_prop)$emmean[ctrl_indices]
+exp_estimates = summary(ls_means_prop)$emmean[exp_indices]
+# Covariance matrix' rows and columns should be ordered by (i) treatment group
+# and (ii) time.
+vcov_emmeans = vcov(ls_means_prop)[c(ctrl_indices, exp_indices), c(ctrl_indices, exp_indices)]
+```
+
+In the second step, we use `TCT_meta()` to estimate the measurement
+occasion-specific acceleration factors; the estimated acceleration factors are
+shown below. Note that the z-values for the estimated acceleration factors are
+equal to the corresponding t-values in the EMM contrasts. This is no coincidence
+and always holds for the `"score"` tests for the time-specific acceleration
+factors. The p-values below and the p-values for the EMM contrasts differ
+slightly because `TCT_meta()` uses the standard normal distribution instead of
+the t-distribution to compute the p-value.
+
+```{r}
+TCT_fit = TCT_meta(
+  time_points = c(0, 12, 24, 40, 48),
+  ctrl_estimates = ctrl_estimates,
+  exp_estimates = exp_estimates,
+  vcov = vcov_emmeans,
+  interpolation = "spline",
+  inference = "score",
+  B = 0
+)
+summary(TCT_fit)
+```
+
+The estimated measurement occasion-specific acceleration factors do not
+contradict the assumption of proportional slowing, i.e., the assumption that the
+acceleration factor is constant over time. Indeed, the estimates are all within
+one standard error of 0.50. Therefore, we can proceed to estimating the common
+acceleration factor.
+
+The object returned by `TCT_meta()` can be used as argument to
+`TCT_meta_common()` to estimate the common acceleration factor. We use two
+estimation methods: (i) the score estimator with adaptively selected weights and
+(ii) the least-squares estimator.
+
+```{r, cache=TRUE}
+# Estimate common accelerations factors.
+set.seed(1)
+TCT_common_fit_score = TCT_meta_common(TCT_fit,
+                                       B = 1e3,
+                                       inference = "score",
+                                       type = "custom")
+summary(TCT_common_fit_score)
+set.seed(1)
+TCT_common_fit_ls = TCT_meta_common(TCT_fit,
+                                    B = 1e3,
+                                    inference = "least-squares")
+summary(TCT_common_fit_ls)
+```
+
+These two estimators lead to very similar results. The estimated common
+acceleration factor is about 0.50. The estimated treatment effect corresponds to
+slowing disease progression with 50\% -- a very relevant effect. The p-values
+and confidence intervals vary a bit more between these estimators and also
+depend on whether the parametric bootstrap is used. Since the sample size is
+relatively small, the parametric bootstrap should be preferred. Indeed,
+simulations revealed that inference based on the parametric bootstrap is closer
+to nominal in small sample sizes.
+
+# Conclusion
+
+Using the classic analysis method, the MMRM and the F-test, we found a
+significant treatment effect, p = `r round(p_trt_effect, 3)`. Based on contrasts
+in EMMs, the estimated treatment effects on the ADAS-Cog scale at 40 and 48
+weeks are a mean difference of 
+`r round(summary(contrast(ls_means_prop, "pairwise"))$estimate[4], 2)` and 
+`r round(summary(contrast(ls_means_prop, "pairwise"))$estimate[5], 2)` points, 
+respectively. The relevance of these treatment effects is unclear. The estimated
+common acceleration factor is
+`r round(coef(TCT_common_fit_ls), 2)`, p = `r round(summary(TCT_common_fit_ls)$p_bootstrap, 3)`
+(using the least-squares estimator and parametric bootstrap). The meta TCT
+approach thus reveals a clinically very relevant effect, something the MMRM did
+not reveal. In addition, the p-value is considerably smaller as compared to
+F-test in the MMRM.
+
+

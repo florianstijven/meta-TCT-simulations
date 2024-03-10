@@ -934,6 +934,150 @@ results_tbl_inference %>%
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
 ```
 
+
+# Model Misspecification
+
+In some settings, the bias does not decrease to zero for a increasing sample
+size. Likewise, the empirical coverage does not approach the nominal coverage
+for an increasing sample size in some settings. To a large degree, this could be
+explained by a model misspecification. When using a different interpolation
+method in meta TCT than the one that generated the data, the model
+misspecification is quite obvious. However, even when the "correct"
+interpolation method is used, the model can still be misspecified, in a more
+subtle way, when measurement occasions have been dropped. The latter cause of
+model misspecification is illustrated next.
+
+Consider the true means in the normal progression profile and connect them using
+cubic spline interpolation. This yields the full blue line on the Figure \@ref(fig:misspecification).
+This line is also the true reference profile from which data are generated.
+Moreover, if $\hat{\boldsymbol{\alpha}}$ converges to the true means, $f_0(t;
+\hat{\boldsymbol{\alpha}})$ also converges to the reference trajectory. Now drop
+the 6'th measurement occasion and denote the true mean vector as
+$\boldsymbol{\alpha}_{-6}$; the interpolating function is denoted by the dashed
+blue line. If $\hat{\boldsymbol{\alpha}}_{-6}$ converges to the true means,
+$f_0(t; \hat{\boldsymbol{\alpha}}_{-6})$ converges to the dashed blue line, but
+**not** the full blue line. Hence, the estimated reference profile is not consistent if
+we drop a measurement occasion.
+
+The red lines present the corresponding mean trajectories for $\gamma = 0.90$. 
+Clearly, dropping a measurement occasion affects the non-linear regression model, and hence, can lead to model misspecification. 
+
+```{r misspecification, fig.cap="Interpolated profiles for the normal progression true mean vector. The full and dashed lines, respectively, correspond to the cubic splines interpolated functions for the true means in the '36 Months' and '36(-30) Months' measurement patterns."}
+ref_means_list = list(
+  "Normal Progression" = c(19.6, 20.5, 20.9, 22.7, 23.8, 25.8, 27.4),
+  "Fast Progression" = c(18, 19.7, 20.9, 22.7, 24.7, 27.1, 29.2)
+)
+time_points = c(0, 6, 12, 18, 24, 30, 36)
+time_grid = seq(from = 0,
+                to = 36,
+                length.out = 3000)
+dgm_settings = tidyr::expand_grid(
+  progression = c("Normal Progression", "Fast Progression"),
+  gamma_slowing = c(1, 0.9, 0.75, 0.5),
+  time_points = list(time_points)
+)
+trajectory_observed_tbl = dgm_settings %>%
+  rowwise(everything()) %>%
+  summarise(ref_means = ref_means_list[progression],
+            trajectory_points = list(
+              spline(
+                x = time_points,
+                y = ref_means,
+                xout = gamma_slowing * unlist(time_points)
+              )$y
+            )) %>%
+  ungroup() %>%
+  mutate(treatment = ifelse(gamma_slowing == 1, "Control Treatment", "Active Treatment"))
+trajectory_observed_tbl = trajectory_observed_tbl %>%
+  rowwise(everything()) %>%
+  reframe(tibble(
+    trajectory_points = unlist(trajectory_points),
+    time_points = unlist(time_points)
+  )) %>%
+  ungroup() %>%
+  mutate(gamma_slowing = as.factor(gamma_slowing))
+
+trajectory_interpolated_tbl = dgm_settings %>%
+  rowwise(everything()) %>%
+  summarise(
+    ref_means = ref_means_list[progression],
+    trajectory_interpolated = list(
+      spline(
+        x = time_points,
+        y = ref_means,
+        xout = gamma_slowing * time_grid
+      )$y
+    ),
+    time_grid = list(time_grid)
+  ) %>%
+  ungroup() %>%
+  mutate(treatment = ifelse(gamma_slowing == 1, "Control Treatment", "Active Treatment"))
+trajectory_interpolated_tbl = trajectory_interpolated_tbl %>%
+  rowwise(everything()) %>%
+  reframe(tibble(
+    trajectory_interpolated = unlist(trajectory_interpolated),
+    time_grid = unlist(time_grid)
+  )) %>%
+  ungroup() %>%
+  mutate(gamma_slowing = as.factor(gamma_slowing))
+
+# Consider the "true" trajectories for the problematic setting
+trajectory_interpolated_problematic_tbl = tibble(
+  progression = c("Normal Progression"),
+  gamma_slowing = c(0.9, 1),
+  time_points = list(time_points[-6])
+) %>%
+  rowwise(everything()) %>%
+  summarise(
+    ref_means = ref_means_list[progression],
+    trajectory_interpolated = list(
+      spline(
+        x = time_points,
+        y = ref_means[-6],
+        xout = gamma_slowing * time_grid
+      )$y
+    ),
+    time_grid = list(time_grid)
+  ) %>%
+  ungroup() %>%
+  mutate(treatment = ifelse(gamma_slowing == 1, "Control Treatment", "Active Treatment"))
+
+trajectory_interpolated_problematic_tbl = trajectory_interpolated_problematic_tbl %>%
+  rowwise(everything()) %>%
+  reframe(tibble(
+    trajectory_interpolated = unlist(trajectory_interpolated),
+    time_grid = unlist(time_grid)
+  )) %>%
+  ungroup() %>%
+  mutate(gamma_slowing = as.factor(gamma_slowing))
+
+bind_rows(trajectory_interpolated_problematic_tbl %>%
+            mutate("Measurement Profile" = "36(-30) Months"),
+          trajectory_interpolated_tbl %>%
+            filter(progression == "Normal Progression",
+                   gamma_slowing %in% c(0.9, 1)) %>%
+            mutate("Measurement Profile" = "36 Months")
+          ) %>%
+ggplot(aes(
+  x = time_grid,
+  y = trajectory_interpolated,
+  color = gamma_slowing,
+  linetype = `Measurement Profile`
+)) +
+  geom_line() +
+  scale_x_continuous(breaks = time_points) +
+  scale_color_brewer(type = "qual", 
+                     palette = 6,
+                     name = latex2exp::TeX("Acceleration Factor, \\gamma")) +
+  xlab("Months After Randomization") +
+  ylab("Interpolated Mean Trajectory") +
+  theme(legend.position = "bottom") +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1), 
+        legend.direction = "vertical") +
+  facet_grid( ~ progression)
+```
+
+
 # Summary
 
 The results are summarized according to the goals of the simulation
@@ -949,20 +1093,12 @@ relation to asymptotic inferential procedures.*
         factor is in some settings slightly biased. However, this bias
         is generally within 0.05 units of zero and generally goes to zero as the
         sample size increases to 1000.
-    -   If there are time mappings to time points which do not have
-        measurement occasions nearby, the estimator could remain biased,
-        even for a sample size of 1000. This is explained by the fact
-        that such time mappings heavily rely on the interpolation
-        approach. The interpolated function may indeed be unstable for
-        time points with no observed points nearby.
-        -   In these settings, similar issues are observed with the
-            empirical coverage of the confidence intervals.
     -   The "wrong" interpolation method can lead to a small bias, even
-        in large samples. The results show that, when the data are
-        generated with cubic spline interpolation, but the meta TCT
-        estimator uses linear interpolation, there can be a small amount
-        of bias that that does not disappear with an increasing sample
-        size.
+        in large samples. The model can be misspecified in at least two ways.
+        -   A different interpolation methods is used in meta TCT than the one
+            used to generate the data.
+        -   Dropping a measurement occasion can also lead to a more subtle model 
+            misspecification. This was illustrated in Section 6.
     -   The bias also generally decreases with
         -   an increasing sample size,
         -   an increasing duration of follow up,
