@@ -25,9 +25,9 @@ library(emmeans)
 
 # Introduction
 
-In this report, we analyze the Lighthouse data. These are data from a randomized
-trial in Alzheimer's disease where the ADAS-Cog score has been
-evaluated at pre-determined measurement occasions.
+In this report, we analyze the mock data that resemble the data in the case
+study. These are data from a randomized trial in Alzheimer's disease where the
+ADAS-Cog score has been evaluated at pre-determined measurement occasions.
 Additionally, baseline covariates are available; these will be adjusted for to
 increase efficiency.
 
@@ -46,16 +46,21 @@ as a response instead of a baseline covariate. Hence, we reformat the data
 accordingly.
 
 ```{r}
-# Read the sas-data set.
-data_lighthouse = haven::read_sas("application/effect.sas7bdat") %>%
+# Read the sas-data set and convert the variables to a format that closely
+# resembles the real data in the case study.
+data_lighthouse = haven::read_sas("application/mock-analysis/effect.sas7bdat") %>%
   rename(WEEK = time, SUBJID = id, TRT = trt) %>%
-  mutate(WEEK = case_match(WEEK, 1 ~ 12, 2 ~ 24, 3 ~ 40, 4 ~ 48),
-         TRT = case_match(TRT, 0~"Placebo", 1~"Active"),
-         SITE = factor(SITE))
-# The original data are not in the long format because there is no separate row
-# for the ADASCog at baseline. We recode the data into the long format.
+  mutate(
+    WEEK = case_match(WEEK, 1 ~ 12, 2 ~ 24, 3 ~ 40, 4 ~ 48),
+    TRT = case_match(TRT, 0 ~ "Placebo", 1 ~ "Active"),
+    SITE = factor(SITE)
+  )
+# The data are not in the long format because there is no separate row for the
+# ADASCog score at baseline. We recode the data into the long format.
 data_lighthouse_long = data_lighthouse %>%
-  # Add baseline value to the change score to get the original ADASCog score.
+  # The sas-data set contains the change scores as outcome variable, instead of
+  # the ADASCog score itself. Add baseline value to the change score to get the
+  # original ADASCog score.
   mutate(CHG = CHG + BASVAL) %>%
   pivot_wider(names_from = "WEEK",
               values_from = "CHG",
@@ -70,13 +75,7 @@ data_lighthouse_long = data_lighthouse %>%
 The baseline covariates and ADAS-Cog scores are summarized by treatment group in 
 Table \@ref(tab:patient-characteristics). By randomization, the distribution of
 baseline covariates should be identical across treatment groups, apart from 
-discrepancies due to sampling variability. This table, however, highlights two
-potential issues:
-
-1. At the post-randomization measurement occasions, there appears to be a
-  discrepancy in the proportion of missing values between the treatment groups. 
-2. There are centers with patients in only one of the treatment groups. This 
-  does not cause problems in our further analyses. Still, this is not ideal. 
+discrepancies due to sampling variability. 
 
 ```{r patient-characteristics}
 data_lighthouse_long %>%
@@ -91,49 +90,11 @@ data_lighthouse_long %>%
   modify_caption("Patient Characteristics by Treatment Group") 
 ```
 
-To investigate the discrepancies in the proportions of missing values, we test
-whether the proportions of missing values are equal at each measurement
-occasion. The results are shown in Table \@ref(tab:missingness) and clearly show
-that there are more missing values in the active treatment group. The magnitude
-of missingness is also substantial; 35% of the values are missing at 48 weeks in
-the active treatment group. In what follows, we assume missing at random (MAR).
-A MMRM leads to valid inferences under MAR regardless of the proportion of
-missing values; however, the results could be sensitive to small violations of
-MAR because there are many missing values.
-
-```{r missingness}
-data_lighthouse_long %>%
-  select(-Week_int) %>%
-  pivot_wider(names_from = "Week",
-              values_from = "ADASCog",
-              names_prefix = "ADASCog") %>%
-  mutate(
-    missing_Week_0 = is.na(ADASCogWeek_0),
-    missing_Week_12 = is.na(ADASCogWeek_12),
-    missing_Week_24 = is.na(ADASCogWeek_24),
-    missing_Week_40 = is.na(ADASCogWeek_40),
-    missing_Week_48 = is.na(ADASCogWeek_48)
-  ) %>%
-  select(
-    missing_Week_12,
-    missing_Week_24,
-    missing_Week_40,
-    missing_Week_48,
-    TRT
-  ) %>%
-  tbl_summary(by = "TRT", missing_text = "(Missing)") %>%
-  modify_caption("Comparison of Proportion of Missing Values.") %>%
-  add_p(test = list(all_categorical() ~ "fisher.test")) %>%
-  as_gt()
-```
-
-
-
 In Figure \@ref(fig:spaghetti-plot), the patient-specific longitudinal profiles
 are plotted alongside the treatment specific mean profiles. Note that the mean
 profiles are based on a complete case analysis. This figure reveals (i) that
 there is a lot of between-patient variability and (ii) that there is a treatment
-effect that increases with time.
+effect that increases with time, although the effect seems negligible.
 
 
 ```{r spaghetti-plot, fig.cap="Plot of patient-specific profiles together with the treatment specific mean profiles based on a complete case analysis.", message=FALSE}
@@ -169,7 +130,7 @@ We now fit a MMRM where the vector of ADAS-Cog scores at baseline, 12, 24, 40,
 and 48 weeks is the response variable. The model is fitted with restricted 
 maximum likelihood. We also add the following baseline covariates in the model:
 
-* `SITEGR1`: This is a categorical variable for the study sites; we include a main
+* `SITE`: This is a categorical variable for the study sites; we include a main
 effect for this variable.
 * `AAPOEN`: This is the APOE Allele status. We include an interaction between the measurement
 occasion and this variable.
@@ -186,7 +147,6 @@ is fitted with `mmrm()` from the `mmrm` R package.
 data_lighthouse_long = data_lighthouse_long %>%
   mutate(
     Week = factor(Week),
-    SITEGR1 = factor(SITE),
     AAPOEN = factor(AAPOEN),
     TRT = ifelse(Week_int == 0L, "Placebo", TRT),
     TRT = factor(TRT),
@@ -232,7 +192,7 @@ measurement occasion are estimated with `emmeans()` and `contrast()` from the
 `emmeans` R package; the corresponding output is printed below. These contrasts
 indicate that the treatment effect increases with time. Still, it remains
 difficult to appreciate the relevance of the observed treatment effect, i.e., is
-a 2 or 3 points mean difference on the ADAS-Cog scale meaningful?
+a 2 points mean difference on the ADAS-Cog scale meaningful?
 
 ```{r}
 # The least squares means are required for meta TCT.
@@ -316,13 +276,13 @@ summary(TCT_common_fit_ls)
 ```
 
 These two estimators lead to very similar results. The estimated common
-acceleration factor is about 0.50. The estimated treatment effect corresponds to
-slowing disease progression with 50\% -- a very relevant effect. The p-values
-and confidence intervals vary a bit more between these estimators and also
-depend on whether the parametric bootstrap is used. Since the sample size is
-relatively small, the parametric bootstrap should be preferred. Indeed,
-simulations revealed that inference based on the parametric bootstrap is closer
-to nominal in small sample sizes.
+acceleration factor is about 0.77 or 0.80. The estimated treatment effect
+corresponds to slowing disease progression with about 20\% -- a very relevant
+effect. The p-values and confidence intervals vary a bit more between these
+estimators and also depend on whether the parametric bootstrap is used. Since
+the sample size is relatively small, the parametric bootstrap should be
+preferred. Indeed, simulations revealed that inference based on the parametric
+bootstrap is closer to nominal in small sample sizes.
 
 # Conclusion
 
@@ -336,8 +296,10 @@ respectively. The relevance of these treatment effects is unclear. The estimated
 common acceleration factor is
 `r round(coef(TCT_common_fit_ls), 2)`, p = `r round(summary(TCT_common_fit_ls)$p_bootstrap, 3)`
 (using the least-squares estimator and parametric bootstrap). The meta TCT
-approach thus reveals a clinically very relevant effect, something the MMRM did
-not reveal. In addition, the p-value is considerably smaller as compared to
-F-test in the MMRM.
+approach thus reveals a clinically modest effect.The corresponding 95 \% CI is 
+`r paste0("(", round(summary(TCT_common_fit_ls)$ci_bootstrap[1], 2), ", ", round(summary(TCT_common_fit_ls)$ci_bootstrap[2], 2), ")")`, 
+which reveals that clinically large treatment effects -- e.g., slowing of more
+than 50 \% -- can be excluded. In addition, the p-value is modestly smaller as
+compared to F-test in the MMRM.
 
 
