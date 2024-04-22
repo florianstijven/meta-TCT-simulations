@@ -118,7 +118,7 @@ results_tbl_estimation %>%
   ) +
   theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation") 
-ggsave(filename = "figures/simulations/bias.png",
+ggsave(filename = "figures/main-text/bias-nl-gls.png",
        device = "png",
        width = double_width,
        height = double_height,
@@ -145,7 +145,7 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/simulations/mse.png",
+ggsave(filename = "figures/web-appendix/mse-nl-gls.png",
        device = "png",
        width = double_width,
        height = double_height,
@@ -180,7 +180,7 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/simulations/least-squares-standard-error.png",
+ggsave(filename = "figures/main-text/se-nl-gls.png",
        device = "png",
        width = double_width,
        height = double_height,
@@ -243,7 +243,7 @@ results_tbl_inference %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/simulations/least-squares-power-type1-error.png",
+ggsave(filename = "figures/web-appendix/power-type1-error-nl-gls.png",
        device = "png",
        width = double_width,
        height = double_height,
@@ -281,14 +281,14 @@ results_tbl_inference %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/simulations/least-squares-coverage.png",
+ggsave(filename = "figures/main-text/coverage-nl-gls.png",
        device = "png",
        width = double_width,
        height = double_height,
        units = "cm",
        dpi = res)
 
-# Simulation Results with Parametric Bootstrap ----
+## Simulation Results with Parametric Bootstrap ----
 
 results_tbl_estimation %>%
   # Change progression from character to factor variable. This ensure that the
@@ -327,7 +327,7 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/simulations/parametric-bootstrap-standard-error.png",
+ggsave(filename = "figures/web-appendix/se-nl-gls-bs.png",
        device = "png",
        width = double_width,
        height = double_height,
@@ -369,7 +369,7 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/simulations/parametric-bootstrap-coverage.png",
+ggsave(filename = "figures/main-text/coverage-nl-gls-bs.png",
        device = "png",
        width = double_width,
        height = double_height,
@@ -441,13 +441,227 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/simulations/parametric-bootstrap-error-rates.png",
+ggsave(filename = "figures/web-appendix/error-rates-nl-gls-bs.png",
        device = "png",
        width = double_width,
        height = double_height,
        units = "cm",
        dpi = res)
 
+
+
+# Simulation Results with the adaptive score-based estimator ----
+
+## Properties of the Estimator ----
+
+# Define dummy tibble that allows us to set the axis limits in each facet
+# separately.
+facet_lims_tbl = tibble(
+  n = NA,
+  gamma_slowing = rep(c(0.5, 0.75, 0.9, 1), each = 2),
+  mean_estimate = c(0.45, 0.55, 0.70, 0.80, 0.85, 0.95, 0.95, 1.05),
+  `Follow Up` = c("24 Months"),
+  progression = NA,
+  interpolation = NA
+)
+results_tbl_estimation %>%
+  filter(constraints == FALSE,
+         inference == "score",
+         drop_first_occasions == 0) %>%
+  ggplot(aes(
+    x = n,
+    y = mean_estimate,
+    color = interpolation,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+  geom_hline(mapping = aes(yintercept = gamma_slowing),
+             alpha = 0.5) +
+  geom_hline(mapping = aes(yintercept = gamma_slowing + 0.05),
+             alpha = 0.30) +
+  geom_hline(mapping = aes(yintercept = gamma_slowing - 0.05),
+             alpha = 0.30) +
+  geom_blank(data = facet_lims_tbl, aes(gamma_slowing, mean_estimate)) +
+  xlab("Sample size, n") +
+  ylab(latex2exp::TeX("E(\\hat{\\gamma})")) +
+  scale_linetype(name = "Progression Rate") +
+  facet_grid(gamma_slowing ~ factor(
+    `Follow Up`,
+    levels = c("24 Months", "36(-30) Months", "36 Months")),
+    scales = "free"
+  ) +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
+  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation") 
+ggsave(filename = "figures/web-appendix/bias-score-adap.png",
+       device = "png",
+       width = double_width,
+       height = double_height,
+       units = "cm",
+       dpi = res)
+
+results_tbl_estimation %>%
+  filter(constraints == FALSE,
+         inference == "score",
+         drop_first_occasions == 0) %>%
+  ggplot(aes(
+    x = n,
+    y = mse,
+    color = `interpolation`,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous(trans = "log10", name = "MSE") +
+  scale_x_continuous(trans = "log10", name = "Sample Size, n") +
+  scale_linetype(name = "Progression Rate") +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
+  facet_grid(gamma_slowing ~ factor(
+    `Follow Up`,
+    levels = c("24 Months", "36(-30) Months", "36 Months"))) +
+  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
+ggsave(filename = "figures/web-appendix/mse-score-adap.png",
+       device = "png",
+       width = double_width,
+       height = double_height,
+       units = "cm",
+       dpi = res)
+
+results_tbl_estimation %>%
+  filter(constraints == FALSE,
+         inference == "score",
+         drop_first_occasions == 0) %>%
+  ggplot(aes(
+    x = n,
+    y = empirical_sd,
+    color = interpolation,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+  geom_point(
+    data = results_tbl_estimation %>%
+      filter(constraints == FALSE,
+             inference == "score",
+             drop_first_occasions == 0),
+    mapping = aes(x = n, y = median_se),
+    shape = 2
+  ) +
+  scale_y_continuous(trans = "log10", name = "Empirical SD and median estimated SE") +
+  scale_x_continuous(trans = "log10", name = "Sample Size, n") +
+  scale_linetype(name = "Progression Rate") +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
+  facet_grid(gamma_slowing ~ factor(
+    `Follow Up`,
+    levels = c("24 Months", "36(-30) Months", "36 Months"))) +
+  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
+ggsave(filename = "figures/web-appendix/se-score-adap.png",
+       device = "png",
+       width = double_width,
+       height = double_height,
+       units = "cm",
+       dpi = res)
+
+## Inferential Properties ----
+
+results_tbl_inference %>%
+  filter(constraints == FALSE,
+         inference == "score",
+         drop_first_occasions == 0) %>%
+  ggplot(
+    aes(
+      x = n,
+      y = rejection_rate,
+      color = interpolation,
+      linetype = progression
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  geom_point(
+    data = results_tbl_inference %>%
+      filter(constraints == FALSE,
+             inference == "score",
+             drop_first_occasions == 0),
+    mapping = aes(x = n,
+                  y = rejection_rate_mmrm),
+    alpha = 0.5,
+    color = "gray"
+  ) +
+  geom_line(
+    data = results_tbl_inference %>%
+      filter(constraints == FALSE,
+             inference == "score",
+             drop_first_occasions == 0),
+    mapping = aes(x = n,
+                  y = rejection_rate_mmrm,
+                  linetype = progression),
+    alpha = 0.75,
+    color = "gray"
+  ) +
+  geom_hline(
+    # Add horizontal lines to indicate the 0.05 nominal error rate in the null
+    # settings.
+    data = tidyr::expand_grid(
+      rejection_rate = 0.05,
+      drop_first_occasions = 0,
+      gamma_slowing = 1
+    ),
+    mapping = aes(yintercept = rejection_rate),
+    alpha = 0.5
+  ) +
+  xlab("Sample size, n") +
+  ylab(latex2exp::TeX("Empirical Power or Type 1 Error Rate")) +
+  scale_linetype(name = "Progression Rate") +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
+  facet_grid(gamma_slowing ~ factor(
+    `Follow Up`,
+    levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
+  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
+ggsave(filename = "figures/web-appendix/power-type1-error-score-adap.png",
+       device = "png",
+       width = double_width,
+       height = double_height,
+       units = "cm",
+       dpi = res)
+
+results_tbl_inference %>%
+  filter(constraints == FALSE,
+         inference == "score",
+         drop_first_occasions == 0) %>%
+  ggplot(aes(
+    x = n,
+    y = coverage,
+    color = interpolation,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+  geom_hline(
+    # Add horizontal lines to indicate the 0.95 nominal coverage.
+    data = tidyr::expand_grid(
+      coverage = 0.95,
+      drop_first_occasions = 0:1,
+      gamma_slowing = c(0.5, 0.75, 0.9, 1)
+    ),
+    mapping = aes(yintercept = coverage),
+    alpha = 0.5
+  ) +
+  xlab("Sample size, n") +
+  ylab(latex2exp::TeX("Empirical Coverage")) +
+  ylim(c(0.75, 1)) +
+  scale_linetype(name = "Progression Rate") +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
+  facet_grid(gamma_slowing ~ factor(
+    `Follow Up`,
+    levels = c("24 Months", "36(-30) Months", "36 Months"))) +
+  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
+ggsave(filename = "figures/web-appendix/coverage-score-adap.png",
+       device = "png",
+       width = double_width,
+       height = double_height,
+       units = "cm",
+       dpi = res)
 
 # Data Generating Mechanism ----
 
@@ -530,7 +744,7 @@ trajectory_observed_tbl %>%
   theme(legend.position = "bottom") +
   theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid( ~ progression)
-ggsave(filename = "figures/simulations/dgm-mean-trajectories.png",
+ggsave(filename = "figures/main-text/dgm-mean-trajectories.png",
        device = "png",
        width = double_width,
        height = double_height,
@@ -591,7 +805,7 @@ ggplot(aes(
   theme(legend.position = "bottom", legend.margin = margin(l = -1), 
         legend.direction = "vertical") +
   facet_grid( ~ progression)
-ggsave(filename = "figures/simulations/problematic-mean-trajectories.png",
+ggsave(filename = "figures/main-text/problematic-mean-trajectories.png",
        device = "png",
        width = single_width,
        height = single_height,

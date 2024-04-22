@@ -1,5 +1,5 @@
 ---
-title: "Analysis of the Lighthouse Data"
+title: "Analysis of the mock Data"
 author: "Florian Stijven"
 date: "`r Sys.Date()`"
 output: 
@@ -200,7 +200,7 @@ ls_means_prop = emmeans::emmeans(mmrm_fit_tct, ~ TRT | Week, weights = "proporti
 ls_means_prop
 ```
 ```{r}
-emmeans::contrast(ls_means_prop, "pairwise")
+confint(emmeans::contrast(ls_means_prop, "pairwise"))
 ```
 
 

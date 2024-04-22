@@ -235,7 +235,7 @@ ls_means_prop = emmeans::emmeans(mmrm_fit_tct, ~ TRT | Week, weights = "proporti
 ls_means_prop
 ```
 ```{r}
-emmeans::contrast(ls_means_prop, "pairwise")
+confint(emmeans::contrast(ls_means_prop, "pairwise"))
 ```
 
 
