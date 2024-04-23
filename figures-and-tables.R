@@ -206,7 +206,7 @@ results_tbl_estimation %>%
     shape = 2
   ) +
   scale_y_continuous(trans = "log10", 
-                     name = "Empirical SD and median estimated SE",
+                     name = "Empirical SD and Median Estimated SE",
                      limits = c(0.025, 1.9)) +
   scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate") +
@@ -354,7 +354,7 @@ results_tbl_estimation %>%
     mapping = aes(x = n, y = median_se_bs),
     shape = 2
   ) +
-  scale_y_continuous(trans = "log10", name = "Empirical SD and median estimated SE") +
+  scale_y_continuous(trans = "log10", name = "Empirical SD and Median Estimated SE") +
   scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate", drop = FALSE) +
   theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
@@ -576,7 +576,7 @@ results_tbl_estimation %>%
     shape = 2
   ) +
   scale_y_continuous(trans = "log10", 
-                     name = "Empirical SD and median estimated SE",
+                     name = "Empirical SD and Median Estimated SE",
                      limits = c(0.025, 1.9)) +
   scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate") +
