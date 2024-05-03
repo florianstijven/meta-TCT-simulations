@@ -12,10 +12,14 @@ double_height = 12.8
 res = 600
 
 # Set the theme for all plots.
-theme_set(theme(legend.position = "bottom",
-                legend.margin = margin(l = -1), 
-                legend.direction = "horizontal", 
-                legend.box = "vertical"))
+theme_set(
+  theme_bw() + theme(
+    legend.position = "bottom",
+    legend.margin = margin(l = -1),
+    legend.direction = "horizontal",
+    legend.box = "vertical"
+  )
+)
 
 
 # Read data set with results of the simulation study.
@@ -152,8 +156,8 @@ results_tbl_estimation %>%
   guides(color = guide_legend(label.position = "right")) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")  +
   scale_y_continuous(n.breaks = 3)
-ggsave(filename = "figures/main-text/bias-nl-gls.png",
-       device = "png",
+ggsave(filename = "figures/main-text/bias-nl-gls.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -178,8 +182,8 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/mse-nl-gls.png",
-       device = "png",
+ggsave(filename = "figures/web-appendix/mse-nl-gls.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -214,8 +218,8 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/main-text/se-nl-gls.png",
-       device = "png",
+ggsave(filename = "figures/main-text/se-nl-gls.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -278,8 +282,8 @@ results_tbl_inference %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/power-type1-error-nl-gls.png",
-       device = "png",
+ggsave(filename = "figures/web-appendix/power-type1-error-nl-gls.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -316,8 +320,8 @@ results_tbl_inference %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/main-text/coverage-nl-gls.png",
-       device = "png",
+ggsave(filename = "figures/main-text/coverage-nl-gls.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -362,8 +366,8 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/se-nl-gls-bs.png",
-       device = "png",
+ggsave(filename = "figures/web-appendix/se-nl-gls-bs.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -404,8 +408,8 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/main-text/coverage-nl-gls-bs.png",
-       device = "png",
+ggsave(filename = "figures/main-text/coverage-nl-gls-bs.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -477,8 +481,8 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/error-rates-nl-gls-bs.png",
-       device = "png",
+ggsave(filename = "figures/web-appendix/error-rates-nl-gls-bs.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -521,8 +525,8 @@ results_tbl_estimation %>%
   ) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation") +
   scale_y_continuous(n.breaks = 3)
-ggsave(filename = "figures/web-appendix/bias-score-adap.png",
-       device = "png",
+ggsave(filename = "figures/web-appendix/bias-score-adap.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -548,8 +552,8 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/mse-score-adap.png",
-       device = "png",
+ggsave(filename = "figures/web-appendix/mse-score-adap.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -585,8 +589,8 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/se-score-adap.png",
-       device = "png",
+ggsave(filename = "figures/web-appendix/se-score-adap.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -649,8 +653,8 @@ results_tbl_inference %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-  ggsave(filename = "figures/web-appendix/power-type1-error-score-adap.png",
-       device = "png",
+  ggsave(filename = "figures/web-appendix/power-type1-error-score-adap.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -687,8 +691,8 @@ results_tbl_inference %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/coverage-score-adap.png",
-       device = "png",
+ggsave(filename = "figures/web-appendix/coverage-score-adap.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -773,14 +777,15 @@ trajectory_observed_tbl %>%
   scale_x_continuous(breaks = time_points) +
   scale_color_brewer(type = "qual", 
                      palette = 6,
-                     name = latex2exp::TeX("Acceleration Factor")) +
+                     name = latex2exp::TeX("Acceleration Factor"), 
+                     direction = -1) +
   xlab("Months Since Randomization") +
   ylab("Mean Trajectory") +
   theme(legend.position = "bottom") +
   theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid( ~ progression)
-ggsave(filename = "figures/main-text/dgm-mean-trajectories.png",
-       device = "png",
+ggsave(filename = "figures/main-text/dgm-mean-trajectories.pdf",
+       device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
@@ -833,15 +838,16 @@ ggplot(aes(
   scale_x_continuous(breaks = time_points) +
   scale_color_brewer(type = "qual", 
                      palette = 6,
-                     name = latex2exp::TeX("Acceleration Factor")) +
+                     name = latex2exp::TeX("Acceleration Factor"),
+                     direction = -1) +
   xlab("Months Since Randomization") +
   ylab("Interpolated Mean Trajectory") +
   theme(legend.position = "bottom") +
   theme(legend.position = "bottom", legend.margin = margin(l = -1), 
         legend.direction = "vertical", legend.box = "horizontal") +
   facet_grid( ~ progression)
-ggsave(filename = "figures/main-text/problematic-mean-trajectories.png",
-       device = "png",
+ggsave(filename = "figures/main-text/problematic-mean-trajectories.pdf",
+       device = "pdf",
        width = single_width,
        height = single_height,
        units = "cm",
