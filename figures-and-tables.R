@@ -724,7 +724,8 @@ trajectory_observed_tbl = dgm_settings %>%
               spline(
                 x = time_points,
                 y = ref_means,
-                xout = gamma_slowing * unlist(time_points)
+                xout = gamma_slowing * unlist(time_points), 
+                method = "natural"
               )$y
             )) %>%
   ungroup() %>%
@@ -746,7 +747,8 @@ trajectory_interpolated_tbl = dgm_settings %>%
       spline(
         x = time_points,
         y = ref_means,
-        xout = gamma_slowing * time_grid
+        xout = gamma_slowing * time_grid,
+        method = "natural"
       )$y
     ),
     time_grid = list(time_grid)
@@ -804,7 +806,8 @@ trajectory_interpolated_problematic_tbl = tibble(
       spline(
         x = time_points,
         y = ref_means[-6],
-        xout = gamma_slowing * time_grid
+        xout = gamma_slowing * time_grid,
+        method = "natural"
       )$y
     ),
     time_grid = list(time_grid)
@@ -847,6 +850,90 @@ ggplot(aes(
         legend.direction = "vertical", legend.box = "horizontal") +
   facet_grid( ~ progression)
 ggsave(filename = "figures/main-text/problematic-mean-trajectories.pdf",
+       device = "pdf",
+       width = single_width,
+       height = single_height,
+       units = "cm",
+       dpi = res)
+
+
+
+# Illustration ------------------------------------------------------------
+
+ref_means = c(17.5, 20.2, 24.7, 29.2)
+trt_means = c(18.5, 23, 27)
+time_points = c(0, 10, 22, 36)
+time_grid = seq(from = 0,
+                to = 36,
+                length.out = 3000)
+trajectory_points = spline(
+  x = time_points,
+  y = ref_means,
+  xout = time_grid,
+  method = "natural"
+)$y
+trt_mapped_times = TCT:::get_new_time(
+  y_ref = ref_means,
+  x_ref = time_points,
+  y_obs = trt_means,
+  method = "spline"
+)
+  
+tibble(time_grid, trajectory_points) %>%
+  ggplot(aes(x = time_grid, y = trajectory_points)) +
+  geom_line(color = RColorBrewer::brewer.pal(n = 4, name = "Set1")[1]) +
+  geom_point(
+    data = tibble(time_points, ref_means),
+    aes(x = time_points, y = ref_means),
+    alpha = 0.25
+  ) +
+  geom_point(data = tibble(time_points = time_points[-1], trt_means),
+             aes(x = time_points, y = trt_means)) +
+  geom_segment(
+    data = tibble(
+      time_points = time_points[-1],
+      trt_mapped_times,
+      ref_means = ref_means[-1],
+      trt_means
+    ),
+    aes(
+      x = time_points,
+      xend = trt_mapped_times,
+      y = trt_means,
+      yend = trt_means
+    ),
+    arrow = arrow(length = unit(0.25, 'cm'))
+  ) +
+  scale_x_continuous(
+    name = "Time Since Randomization",
+    breaks = c(time_points, trt_mapped_times),
+    labels = c(
+      "0",
+      latex2exp::TeX("$t_1$"),
+      latex2exp::TeX("$t_2$"),
+      latex2exp::TeX("$t_3$"),
+      latex2exp::TeX("$\\gamma_1 t_1$"),
+      latex2exp::TeX("$\\gamma_2 t_2$"),
+      latex2exp::TeX("$\\gamma_3 t_3$")
+    ),
+    minor_breaks = NULL
+  ) +
+  scale_y_continuous(
+    name = "Mean Outcome",
+    breaks = c(ref_means, trt_means),
+    labels = c(
+      latex2exp::TeX("$\\alpha_0$"),
+      latex2exp::TeX("$\\alpha_1$"),
+      latex2exp::TeX("$\\alpha_2$"),
+      latex2exp::TeX("$\\alpha_3$"),
+      latex2exp::TeX("$\\beta_1$"),
+      latex2exp::TeX("$\\beta_2$"),
+      latex2exp::TeX("$\\beta_3$")
+    ),
+    minor_breaks = NULL
+  )
+
+ggsave(filename = "figures/main-text/illustration.pdf",
        device = "pdf",
        width = single_width,
        height = single_height,
