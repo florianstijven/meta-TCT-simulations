@@ -238,7 +238,8 @@ settings = settings %>%
       spline(
         x = time_points,
         y = ref_means,
-        xout = gamma_slowing * time_points
+        xout = gamma_slowing * time_points,
+        method = "natural"
       )$y
     ),
     vcov = list(vcov_ref[K_vec, K_vec]),
