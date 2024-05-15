@@ -252,7 +252,7 @@ settings = settings %>%
   cross_join(tibble(trial_number = 1:N_trials))
 
 # Fit the MMRM model for each generated data set.
-cl = parallel::makeCluster(ncores)
+cl = parallel::makeCluster(ncores, type = "FORK")
 parallel::clusterEvalQ(cl, library(TCT))
 parallel::clusterEvalQ(cl, library(dplyr))
 parallel::clusterExport(cl,
