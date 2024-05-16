@@ -793,68 +793,68 @@ ggsave(filename = "figures/main-text/dgm-mean-trajectories.pdf",
        units = "cm",
        dpi = res)
 
-# Consider the "true" trajectories for the problematic setting
-trajectory_interpolated_problematic_tbl = tibble(
-  progression = c("Normal Progression"),
-  gamma_slowing = c(0.9, 1),
-  time_points = list(time_points[-6])
-) %>%
-  rowwise(everything()) %>%
-  summarise(
-    ref_means = ref_means_list[progression],
-    trajectory_interpolated = list(
-      spline(
-        x = time_points,
-        y = ref_means[-6],
-        xout = gamma_slowing * time_grid,
-        method = "natural"
-      )$y
-    ),
-    time_grid = list(time_grid)
-  ) %>%
-  ungroup() %>%
-  mutate(treatment = ifelse(gamma_slowing == 1, "Control Treatment", "Active Treatment"))
-
-trajectory_interpolated_problematic_tbl = trajectory_interpolated_problematic_tbl %>%
-  rowwise(everything()) %>%
-  reframe(tibble(
-    trajectory_interpolated = unlist(trajectory_interpolated),
-    time_grid = unlist(time_grid)
-  )) %>%
-  ungroup() %>%
-  mutate(gamma_slowing = as.factor(gamma_slowing))
-
-bind_rows(trajectory_interpolated_problematic_tbl %>%
-            mutate("Measurement Pattern" = "36(-30) Months"),
-          trajectory_interpolated_tbl %>%
-            filter(progression == "Normal Progression",
-                   gamma_slowing %in% c(0.9, 1)) %>%
-            mutate("Measurement Pattern" = "36 Months")
-          ) %>%
-ggplot(aes(
-  x = time_grid,
-  y = trajectory_interpolated,
-  color = gamma_slowing,
-  linetype = `Measurement Pattern`
-)) +
-  geom_line() +
-  scale_x_continuous(breaks = time_points) +
-  scale_color_brewer(type = "qual", 
-                     palette = 6,
-                     name = latex2exp::TeX("Acceleration Factor"),
-                     direction = -1) +
-  xlab("Months Since Randomization") +
-  ylab("Interpolated Mean Trajectory") +
-  theme(legend.position = "bottom") +
-  theme(legend.position = "bottom", legend.margin = margin(l = -1), 
-        legend.direction = "vertical", legend.box = "horizontal") +
-  facet_grid( ~ progression)
-ggsave(filename = "figures/main-text/problematic-mean-trajectories.pdf",
-       device = "pdf",
-       width = single_width,
-       height = single_height,
-       units = "cm",
-       dpi = res)
+# # Consider the "true" trajectories for the problematic setting
+# trajectory_interpolated_problematic_tbl = tibble(
+#   progression = c("Normal Progression"),
+#   gamma_slowing = c(0.9, 1),
+#   time_points = list(time_points[-6])
+# ) %>%
+#   rowwise(everything()) %>%
+#   summarise(
+#     ref_means = ref_means_list[progression],
+#     trajectory_interpolated = list(
+#       spline(
+#         x = time_points,
+#         y = ref_means[-6],
+#         xout = gamma_slowing * time_grid,
+#         method = "natural"
+#       )$y
+#     ),
+#     time_grid = list(time_grid)
+#   ) %>%
+#   ungroup() %>%
+#   mutate(treatment = ifelse(gamma_slowing == 1, "Control Treatment", "Active Treatment"))
+# 
+# trajectory_interpolated_problematic_tbl = trajectory_interpolated_problematic_tbl %>%
+#   rowwise(everything()) %>%
+#   reframe(tibble(
+#     trajectory_interpolated = unlist(trajectory_interpolated),
+#     time_grid = unlist(time_grid)
+#   )) %>%
+#   ungroup() %>%
+#   mutate(gamma_slowing = as.factor(gamma_slowing))
+# 
+# bind_rows(trajectory_interpolated_problematic_tbl %>%
+#             mutate("Measurement Pattern" = "36(-30) Months"),
+#           trajectory_interpolated_tbl %>%
+#             filter(progression == "Normal Progression",
+#                    gamma_slowing %in% c(0.9, 1)) %>%
+#             mutate("Measurement Pattern" = "36 Months")
+#           ) %>%
+# ggplot(aes(
+#   x = time_grid,
+#   y = trajectory_interpolated,
+#   color = gamma_slowing,
+#   linetype = `Measurement Pattern`
+# )) +
+#   geom_line() +
+#   scale_x_continuous(breaks = time_points) +
+#   scale_color_brewer(type = "qual", 
+#                      palette = 6,
+#                      name = latex2exp::TeX("Acceleration Factor"),
+#                      direction = -1) +
+#   xlab("Months Since Randomization") +
+#   ylab("Interpolated Mean Trajectory") +
+#   theme(legend.position = "bottom") +
+#   theme(legend.position = "bottom", legend.margin = margin(l = -1), 
+#         legend.direction = "vertical", legend.box = "horizontal") +
+#   facet_grid( ~ progression)
+# ggsave(filename = "figures/main-text/problematic-mean-trajectories.pdf",
+#        device = "pdf",
+#        width = single_width,
+#        height = single_height,
+#        units = "cm",
+#        dpi = res)
 
 
 
