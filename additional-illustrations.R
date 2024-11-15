@@ -127,7 +127,7 @@ tibble(
   geom_abline(slope = 1, intercept = 0, 
               linetype = "dashed") +
   scale_x_continuous(name = "Time in Active Group (Years)", breaks = 0:4, limits = c(0, 4)) +
-  scale_y_continuous(name = "Time in Control Group (Years)", breaks = 0:4, limits = c(0, 4)) +
+  scale_y_continuous(name = "Time in Control Group (Years)", breaks = -1:4, limits = c(-1, 4)) +
   scale_color_brewer(type = "qual", 
                      palette = 6,
                      name = NULL, 
