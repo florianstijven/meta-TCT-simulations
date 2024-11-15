@@ -31,7 +31,7 @@ time_mapping_base_plot = tibble(time_grid, trajectory_points) %>%
   geom_point(
     data = tibble(time_points, ref_means),
     aes(x = time_points, y = ref_means),
-    alpha = 0.25
+    color = "red"
   ) +
   geom_point(data = tibble(time_points = time_points[-1], trt_means),
              aes(x = time_points, y = trt_means)) +
