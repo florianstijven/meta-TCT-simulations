@@ -43,9 +43,9 @@ time_mapping_base_plot = tibble(time_grid, trajectory_points) %>%
       latex2exp::TeX("$t_1$"),
       latex2exp::TeX("$t_2$"),
       latex2exp::TeX("$t_3$"),
-      latex2exp::TeX("$\\gamma_1 t_1$"),
-      latex2exp::TeX("$\\gamma_2 t_2$"),
-      latex2exp::TeX("$\\gamma_3 t_3$")
+      latex2exp::TeX("$g(t_1; \\gamma)$"),
+      latex2exp::TeX("$g(t_2; \\gamma)$"),
+      latex2exp::TeX("$g(t_3; \\gamma)$")
     ),
     minor_breaks = NULL
   ) +
