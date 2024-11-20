@@ -127,14 +127,14 @@ tibble(
   geom_abline(slope = 1, intercept = 0, 
               linetype = "dashed") +
   scale_x_continuous(name = "Time in Active Group (Years)", breaks = 0:4, limits = c(0, 4)) +
-  scale_y_continuous(name = "Time in Control Group (Years)", breaks = -1:4, limits = c(-1, 4)) +
+  scale_y_continuous(name = latex2exp::TeX("$g(t; \\gamma) = \\gamma \\cdot t$"), breaks = -1:4, limits = c(-1, 4)) +
   scale_color_brewer(type = "qual", 
                      palette = 6,
                      name = NULL, 
                      labels = parse(text = expression(gamma == 1.5, gamma == 0.75, gamma == 0.5))) +
   theme(legend.position = "none") +
   coord_cartesian(xlim = c(0, 4),expand = FALSE) +
-  ggtitle(latex2exp::TeX("$g(t; \\gamma) = \\gamma \\cdot t$"))
+  ggtitle("Proportional Slowing")
 
 
 ggsave(filename = "figures/additional-illustrations/proportional-slowing.pdf",
@@ -158,13 +158,13 @@ tibble(
   geom_abline(slope = 1, intercept = 0, 
               linetype = "dashed") +
   scale_x_continuous(name = "Time in Active Group (Years)", breaks = 0:4, limits = c(0, 4)) +
-  scale_y_continuous(name = "Time in Control Group (Years)", breaks = -1:4, limits = c(-1, 4)) +
+  scale_y_continuous(name = latex2exp::TeX("$g(t; \\gamma)$"), breaks = -1:4, limits = c(-1, 4)) +
   scale_color_brewer(type = "qual", 
                      palette = 6,
                      name = NULL) +
   theme(legend.position = "none") +
   coord_cartesian(xlim = c(0, 4), expand = FALSE) +
-  ggtitle(latex2exp::TeX("$g(t; \\gamma)$"))
+  ggtitle("Complex Time Mappings")
 
 
 ggsave(filename = "figures/additional-illustrations/proportional-slowing-offset.pdf",
