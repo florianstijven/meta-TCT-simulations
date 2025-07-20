@@ -1,7 +1,5 @@
-data = data/original/effect.sas7bdat
-data-synthetic = data/synthetic/effect.sas7bdat
 
-.PHONY: all application simulation
+.PHONY: all application simulation synthetic-application
 all: simulation \
 	application-synthetic
 	

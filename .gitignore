@@ -6,3 +6,6 @@ results_simulation_lean.rds
 *.html
 *.sas7bdat
 *.png
+*.rds
+*.RData
+*cache*
