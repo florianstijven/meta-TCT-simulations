@@ -48,7 +48,7 @@ accordingly.
 ```{r}
 # Read the sas-data set and convert the variables to a format that closely
 # resembles the real data in the case study.
-data_lighthouse = haven::read_sas("application/mock-analysis/effect.sas7bdat") %>%
+data_lighthouse = haven::read_sas(here::here("data", "synthetic", "effect.sas7bdat")) %>%
   rename(WEEK = time, SUBJID = id, TRT = trt) %>%
   mutate(
     WEEK = case_match(WEEK, 1 ~ 12, 2 ~ 24, 3 ~ 40, 4 ~ 48),

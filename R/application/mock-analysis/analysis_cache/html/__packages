@@ -5,6 +5,7 @@ datasets
 grDevices
 graphics
 stats
+rmarkdown
 ggplot2
 dplyr
 tidyr

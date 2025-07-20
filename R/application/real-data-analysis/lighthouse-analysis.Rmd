@@ -47,7 +47,7 @@ accordingly.
 
 ```{r}
 # Read the sas-data set.
-data_lighthouse = haven::read_sas("tct_adascog.sas7bdat")
+data_lighthouse = haven::read_sas(here::here("data", "original", "tct_adascog.sas7bdat"))
 # The original data are not in the long format because there is no separate row
 # for the ADASCog at baseline. We recode the data into the long format.
 data_lighthouse_long = data_lighthouse %>%

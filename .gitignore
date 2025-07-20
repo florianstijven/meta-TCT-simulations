@@ -4,3 +4,5 @@ results_simulation_lean.csv
 results_simulation_lean.rds
 *.pdf
 *.html
+*.sas7bdat
+*.png
