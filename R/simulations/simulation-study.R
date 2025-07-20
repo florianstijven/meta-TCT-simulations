@@ -8,6 +8,9 @@ print(version)
 # Ensure to the state of packages is up-to-date.
 renv::restore()
 
+# Directory to save results in.
+dir_results = here::here("results", "raw-results", "simulations")
+
 # Number of independent replications for each setting.
 N_trials = as.integer(args[1])
 
@@ -539,10 +542,16 @@ results_lean_tbl = results_tbl %>%
     -K_vec
   )
 
-saveRDS(object = results_tbl, file = "results_simulation_full.rds")
-saveRDS(object = results_lean_tbl, file = "results_simulation_lean.rds")
+saveRDS(
+  object = results_tbl,
+  file = here::here(dir_results, "results_simulation_full.rds")
+)
+saveRDS(
+  object = results_lean_tbl,
+  file = here::here(dir_results, "results_simulation_lean.rds")
+)
 write.csv(x = results_lean_tbl,
-          file = "results_simulation_lean.csv")
+          file = here::here(dir_results, "results_simulation_lean.csv"))
 
 print(Sys.time() - a)
 

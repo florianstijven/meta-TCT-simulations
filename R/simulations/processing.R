@@ -4,6 +4,12 @@
 # Preliminaries and Data Preparation ----
 library(tidyverse)
 
+# Set directory where the simulation results are stored.
+dir_results = here::here("results", "raw-results", "simulations")
+# Set directories where the plots and tables are saved.
+dir_figures = here::here("results", "figures", "simulations")
+dir_tables = here::here("results", "tables", "simulations")
+
 # Set the theme for all plots.
 theme_set(
   theme_get() +
@@ -19,7 +25,7 @@ theme_set(
 
 
 # Read data set with results of the simulation study.
-results_tbl = readRDS(file = "results_simulation_lean.rds")
+results_tbl = readRDS(file = here::here(dir_results, "results_simulation_lean.rds"))
 
 # Compute all summary measures regarding the performance of the estimators.
 results_tbl_estimation = results_tbl %>%
@@ -164,7 +170,8 @@ results_tbl_estimation %>%
   guides(color = guide_legend(label.position = "right")) +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")  +
   scale_y_continuous(n.breaks = 3)
-ggsave(filename = "figures/main-text/bias.pdf",
+ggsave(filename = "bias.pdf", 
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -229,7 +236,8 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/main-text/se.pdf",
+ggsave(filename = "se.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -294,7 +302,8 @@ results_tbl_inference %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
-ggsave(filename = "figures/web-appendix/power-type1-error-nl-gls.pdf",
+ggsave(filename = "power-type1-error-nl-gls.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -333,7 +342,8 @@ results_tbl_inference %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
-ggsave(filename = "figures/main-text/coverage.pdf",
+ggsave(filename = "coverage.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -380,7 +390,8 @@ results_tbl_estimation %>%
                      palette = 2,
                      name = "Estimator")
 ggsave(
-  filename = "figures/web-appendix/se-bs.pdf",
+  filename = "se-bs.pdf",
+  path = dir_figures,
   device = "pdf",
   width = double_width,
   height = double_height,
@@ -423,7 +434,8 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
-ggsave(filename = "figures/main-text/coverage-bs.pdf",
+ggsave(filename = "coverage-bs.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -496,7 +508,8 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
-ggsave(filename = "figures/web-appendix/error-rates-bs.pdf",
+ggsave(filename = "error-rates-bs.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -552,7 +565,8 @@ results_tbl_estimation %>%
   guides(color = guide_legend(label.position = "right")) +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")  +
   scale_y_continuous(n.breaks = 3)
-ggsave(filename = "figures/main-text/bias.pdf",
+ggsave(filename = "bias-linear.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -579,7 +593,8 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/mse.pdf",
+ggsave(filename = "mse-linear.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -617,7 +632,8 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/main-text/se.pdf",
+ggsave(filename = "se-linear.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -684,7 +700,8 @@ results_tbl_inference %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
-ggsave(filename = "figures/web-appendix/power-type1-error-nl-gls.pdf",
+ggsave(filename = "power-type1-error-nl-gls-linear.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -723,7 +740,8 @@ results_tbl_inference %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
-ggsave(filename = "figures/main-text/coverage.pdf",
+ggsave(filename = "coverage-linear.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -766,7 +784,8 @@ results_tbl_estimation %>%
                      palette = 2,
                      name = "Estimator")
 ggsave(
-  filename = "figures/web-appendix/se-bs.pdf",
+  filename = "se-bs.pdf",
+  path = dir_figures,
   device = "pdf",
   width = double_width,
   height = double_height,
@@ -807,7 +826,8 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
-ggsave(filename = "figures/main-text/coverage-bs.pdf",
+ggsave(filename = "coverage-bs.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -874,7 +894,8 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
-ggsave(filename = "figures/web-appendix/error-rates-bs.pdf",
+ggsave(filename = "error-rates-bs.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -965,7 +986,8 @@ trajectory_observed_tbl %>%
   theme(legend.position = "bottom") +
   theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid( ~ progression)
-ggsave(filename = "figures/main-text/dgm-mean-trajectories.pdf",
+ggsave(filename = "dgm-mean-trajectories.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -1112,7 +1134,8 @@ tibble(time_grid, trajectory_points) %>%
     minor_breaks = NULL
   )
 
-ggsave(filename = "figures/main-text/illustration.pdf",
+ggsave(filename = "illustration.pdf",
+       path = dir_figures,
        device = "pdf",
        width = single_width,
        height = single_height,
