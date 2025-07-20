@@ -2,3 +2,4 @@
 results_simulation_full.rds
 results_simulation_lean.csv
 results_simulation_lean.rds
+*.pdf

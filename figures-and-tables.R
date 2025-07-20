@@ -4,16 +4,10 @@
 # Preliminaries and Data Preparation ----
 library(tidyverse)
 
-# Size parameter for saving plots to disk.
-single_width = 9
-double_width = 14
-single_height = 8.2
-double_height = 12.8
-res = 600
-
 # Set the theme for all plots.
 theme_set(
-  theme_bw() + theme(
+  theme_get() +
+  theme(
     legend.position = "bottom",
     legend.margin = margin(l = -1),
     legend.direction = "horizontal",
@@ -60,6 +54,11 @@ results_tbl_estimation = results_tbl %>%
       progression,
       "Fast" = "fast",
       "Normal" = "normal"
+    ),
+    inference = forcats::fct_recode(
+      inference,
+      "GLS" = "least-squares",
+      "Adaptive Weights" = "score"
     )
   )
 
@@ -106,12 +105,17 @@ results_tbl_inference = results_tbl %>%
       progression,
       "Fast" = "fast",
       "Normal" = "normal"
+    ),
+    inference = forcats::fct_recode(
+      inference,
+      "GLS" = "least-squares",
+      "Adaptive Weights" = "score"
     )
   )
 
 
 
-# Simulation Results with Inference Based on the Least-Squares Criterion ----
+# Simulation Results with natural cubic spline interpolation ----
 
 ## Properties of the Estimator ----
 
@@ -123,17 +127,19 @@ facet_lims_tbl = tibble(
   mean_estimate = c(0.40, 0.60, 0.65, 0.85, 0.80, 1.00, 0.90, 1.10),
   rejection_rate = c(0, 1, 0, 1, 0, 1, 0, 0.25),
   `Follow Up` = c("24 Months"),
-  progression = NA,
-  interpolation = NA
+  progression = "Normal",
+  interpolation = NA,
+  inference = "GLS"
 )
 results_tbl_estimation %>%
   filter(constraints == FALSE,
-         inference == "least-squares",
-         drop_first_occasions == 0) %>%
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Natural Cubic Spline") %>%
   ggplot(aes(
     x = n,
     y = mean_estimate,
-    color = interpolation,
+    color = inference,
     linetype = progression
   )) +
   geom_point() +
@@ -154,9 +160,9 @@ results_tbl_estimation %>%
     scales = "free"
   ) +
   guides(color = guide_legend(label.position = "right")) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")  +
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")  +
   scale_y_continuous(n.breaks = 3)
-ggsave(filename = "figures/main-text/bias-nl-gls.pdf",
+ggsave(filename = "figures/main-text/bias.pdf",
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -165,12 +171,13 @@ ggsave(filename = "figures/main-text/bias-nl-gls.pdf",
 
 results_tbl_estimation %>%
   filter(constraints == FALSE,
-         inference == "least-squares",
-         drop_first_occasions == 0) %>%
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Natural Cubic Spline") %>%
   ggplot(aes(
     x = n,
     y = mse,
-    color = `interpolation`,
+    color = inference,
     linetype = progression
   )) +
   geom_point() +
@@ -182,7 +189,7 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/mse-nl-gls.pdf",
+ggsave(filename = "figures/web-appendix/mse.pdf",
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -191,12 +198,13 @@ ggsave(filename = "figures/web-appendix/mse-nl-gls.pdf",
 
 results_tbl_estimation %>%
   filter(constraints == FALSE,
-         inference == "least-squares",
-         drop_first_occasions == 0) %>%
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Natural Cubic Spline") %>%
   ggplot(aes(
     x = n,
     y = empirical_sd,
-    color = interpolation,
+    color = inference,
     linetype = progression
   )) +
   geom_point() +
@@ -204,21 +212,22 @@ results_tbl_estimation %>%
   geom_point(
     data = results_tbl_estimation %>%
       filter(constraints == FALSE,
-             inference == "least-squares",
-             drop_first_occasions == 0),
+             inference %in% c("GLS", "Adaptive Weights"),
+             drop_first_occasions == 0, 
+             interpolation == "Natural Cubic Spline"),
     mapping = aes(x = n, y = median_se),
     shape = 2
   ) +
   scale_y_continuous(trans = "log10", 
                      name = "Empirical SD and Median Estimated SE",
-                     limits = c(0.025, 1.9)) +
+                     limits = c(0.025, 2)) +
   scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate") +
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/main-text/se-nl-gls.pdf",
+ggsave(filename = "figures/main-text/se.pdf",
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -229,13 +238,14 @@ ggsave(filename = "figures/main-text/se-nl-gls.pdf",
 
 results_tbl_inference %>%
   filter(constraints == FALSE,
-         inference == "least-squares",
-         drop_first_occasions == 0) %>%
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Natural Cubic Spline") %>%
   ggplot(
     aes(
       x = n,
       y = rejection_rate,
-      color = interpolation,
+      color = inference,
       linetype = progression
     )
   ) +
@@ -281,7 +291,7 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
 ggsave(filename = "figures/web-appendix/power-type1-error-nl-gls.pdf",
        device = "pdf",
        width = double_width,
@@ -291,12 +301,13 @@ ggsave(filename = "figures/web-appendix/power-type1-error-nl-gls.pdf",
 
 results_tbl_inference %>%
   filter(constraints == FALSE,
-         inference == "least-squares",
-         drop_first_occasions == 0) %>%
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Natural Cubic Spline") %>%
   ggplot(aes(
     x = n,
     y = coverage,
-    color = interpolation,
+    color = inference,
     linetype = progression
   )) +
   geom_point() +
@@ -319,8 +330,8 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/main-text/coverage-nl-gls.pdf",
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
+ggsave(filename = "figures/main-text/coverage.pdf",
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -330,19 +341,19 @@ ggsave(filename = "figures/main-text/coverage-nl-gls.pdf",
 ## Simulation Results with Parametric Bootstrap ----
 
 results_tbl_estimation %>%
-  # Change progression from character to factor variable. This ensure that the
+  # Change progression from character to factor variable. This ensures that the
   # line types are consistent with the previous graphs.
   mutate(progression = factor(progression)) %>%
   filter(
     constraints == FALSE,
-    inference == "least-squares",
-    progression == "Normal",
-    drop_first_occasions == 0
+    inference %in% c("GLS", "Adaptive Weights"),
+    drop_first_occasions == 0,
+    interpolation == "Natural Cubic Spline"
   ) %>%
   ggplot(aes(
     x = n,
     y = empirical_sd,
-    color =interpolation,
+    color = inference,
     linetype = progression
   )) +
   geom_point() +
@@ -351,9 +362,9 @@ results_tbl_estimation %>%
     data = results_tbl_estimation %>%
       filter(
         constraints == FALSE,
-        inference == "least-squares",
-        progression == "Normal",
-        drop_first_occasions == 0
+        inference %in% c("GLS", "Adaptive Weights"),
+        drop_first_occasions == 0,
+        interpolation == "Natural Cubic Spline"
       ),
     mapping = aes(x = n, y = median_se_bs),
     shape = 2
@@ -362,16 +373,18 @@ results_tbl_estimation %>%
   scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate", drop = FALSE) +
   theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
-  facet_grid(gamma_slowing ~ factor(
-    `Follow Up`,
-    levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/se-nl-gls-bs.pdf",
-       device = "pdf",
-       width = double_width,
-       height = double_height,
-       units = "cm",
-       dpi = res)
+  facet_grid(gamma_slowing ~ factor(`Follow Up`, levels = c("24 Months", "36(-30) Months", "36 Months"))) +
+  scale_color_brewer(type = "qual",
+                     palette = 2,
+                     name = "Estimator")
+ggsave(
+  filename = "figures/web-appendix/se-bs.pdf",
+  device = "pdf",
+  width = double_width,
+  height = double_height,
+  units = "cm",
+  dpi = res
+)
 
 results_tbl_inference %>%
   # Change progression from character to factor variable. This ensure that the
@@ -379,14 +392,14 @@ results_tbl_inference %>%
   mutate(progression = as.factor(progression)) %>%
   filter(
     constraints == FALSE,
-    inference == "least-squares",
-    progression == "Normal",
-    drop_first_occasions == 0
+    inference %in% c("GLS", "Adaptive Weights"),
+    drop_first_occasions == 0,
+    interpolation == "Natural Cubic Spline"
   ) %>%
   ggplot(aes(
     x = n,
     y = coverage_bs,
-    color = interpolation,
+    color = inference,
     linetype = progression
   )) +
   geom_point() +
@@ -407,8 +420,8 @@ results_tbl_inference %>%
   theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/main-text/coverage-nl-gls-bs.pdf",
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
+ggsave(filename = "figures/main-text/coverage-bs.pdf",
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -421,15 +434,15 @@ results_tbl_inference %>%
   mutate(progression = as.factor(progression)) %>%
   filter(
     constraints == FALSE,
-    inference == "least-squares",
+    inference %in% c("GLS", "Adaptive Weights"),
     drop_first_occasions == 0,
-    progression == "Normal"
+    interpolation == "Natural Cubic Spline"
   ) %>%
   ggplot(
     aes(
       x = n,
       y = rejection_rate_bs,
-      color = interpolation,
+      color = inference,
       linetype = progression
     )
   ) +
@@ -480,8 +493,8 @@ results_tbl_inference %>%
   theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/error-rates-nl-gls-bs.pdf",
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
+ggsave(filename = "figures/web-appendix/error-rates-bs.pdf",
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -490,20 +503,31 @@ ggsave(filename = "figures/web-appendix/error-rates-nl-gls-bs.pdf",
 
 
 
-# Simulation Results with the adaptive score-based estimator ----
+# Simulation Results with linear interpolation ----
 
 ## Properties of the Estimator ----
 
 # Define dummy tibble that allows us to set the axis limits in each facet
 # separately.
+facet_lims_tbl = tibble(
+  n = NA,
+  gamma_slowing = rep(c(0.5, 0.75, 0.9, 1), each = 2),
+  mean_estimate = c(0.40, 0.60, 0.65, 0.85, 0.80, 1.00, 0.90, 1.10),
+  rejection_rate = c(0, 1, 0, 1, 0, 1, 0, 0.25),
+  `Follow Up` = c("24 Months"),
+  progression = "Normal",
+  interpolation = NA,
+  inference = "GLS"
+)
 results_tbl_estimation %>%
   filter(constraints == FALSE,
-         inference == "score",
-         drop_first_occasions == 0) %>%
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Linear") %>%
   ggplot(aes(
     x = n,
     y = mean_estimate,
-    color = interpolation,
+    color = inference,
     linetype = progression
   )) +
   geom_point() +
@@ -523,9 +547,10 @@ results_tbl_estimation %>%
     levels = c("24 Months", "36(-30) Months", "36 Months")),
     scales = "free"
   ) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation") +
+  guides(color = guide_legend(label.position = "right")) +
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")  +
   scale_y_continuous(n.breaks = 3)
-ggsave(filename = "figures/web-appendix/bias-score-adap.pdf",
+ggsave(filename = "figures/main-text/bias.pdf",
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -534,12 +559,13 @@ ggsave(filename = "figures/web-appendix/bias-score-adap.pdf",
 
 results_tbl_estimation %>%
   filter(constraints == FALSE,
-         inference == "score",
-         drop_first_occasions == 0) %>%
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Linear") %>%
   ggplot(aes(
     x = n,
     y = mse,
-    color = `interpolation`,
+    color = inference,
     linetype = progression
   )) +
   geom_point() +
@@ -547,12 +573,11 @@ results_tbl_estimation %>%
   scale_y_continuous(trans = "log10", name = "MSE", limits = c(0.0005, 5)) +
   scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate") +
-  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/mse-score-adap.pdf",
+ggsave(filename = "figures/web-appendix/mse.pdf",
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -561,12 +586,13 @@ ggsave(filename = "figures/web-appendix/mse-score-adap.pdf",
 
 results_tbl_estimation %>%
   filter(constraints == FALSE,
-         inference == "score",
-         drop_first_occasions == 0) %>%
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Linear") %>%
   ggplot(aes(
     x = n,
     y = empirical_sd,
-    color = interpolation,
+    color = inference,
     linetype = progression
   )) +
   geom_point() +
@@ -574,22 +600,22 @@ results_tbl_estimation %>%
   geom_point(
     data = results_tbl_estimation %>%
       filter(constraints == FALSE,
-             inference == "score",
-             drop_first_occasions == 0),
+             inference %in% c("GLS", "Adaptive Weights"),
+             drop_first_occasions == 0, 
+             interpolation == "Linear"),
     mapping = aes(x = n, y = median_se),
     shape = 2
   ) +
   scale_y_continuous(trans = "log10", 
                      name = "Empirical SD and Median Estimated SE",
-                     limits = c(0.025, 1.9)) +
+                     limits = c(0.025, 2)) +
   scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate") +
-  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/se-score-adap.pdf",
+ggsave(filename = "figures/main-text/se.pdf",
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -600,13 +626,14 @@ ggsave(filename = "figures/web-appendix/se-score-adap.pdf",
 
 results_tbl_inference %>%
   filter(constraints == FALSE,
-         inference == "score",
-         drop_first_occasions == 0) %>%
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Linear") %>%
   ggplot(
     aes(
       x = n,
       y = rejection_rate,
-      color = interpolation,
+      color = inference,
       linetype = progression
     )
   ) +
@@ -615,8 +642,9 @@ results_tbl_inference %>%
   geom_point(
     data = results_tbl_inference %>%
       filter(constraints == FALSE,
-             inference == "score",
-             drop_first_occasions == 0),
+             inference %in% c("GLS", "Adaptive Weights"),
+             drop_first_occasions == 0, 
+             interpolation == "Linear") ,
     mapping = aes(x = n,
                   y = rejection_rate_mmrm),
     alpha = 0.5,
@@ -625,8 +653,9 @@ results_tbl_inference %>%
   geom_line(
     data = results_tbl_inference %>%
       filter(constraints == FALSE,
-             inference == "score",
-             drop_first_occasions == 0),
+             inference %in% c("GLS", "Adaptive Weights"),
+             drop_first_occasions == 0, 
+             interpolation == "Linear") ,
     mapping = aes(x = n,
                   y = rejection_rate_mmrm,
                   linetype = progression),
@@ -652,8 +681,8 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-  ggsave(filename = "figures/web-appendix/power-type1-error-score-adap.pdf",
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
+ggsave(filename = "figures/web-appendix/power-type1-error-nl-gls.pdf",
        device = "pdf",
        width = double_width,
        height = double_height,
@@ -662,12 +691,13 @@ results_tbl_inference %>%
 
 results_tbl_inference %>%
   filter(constraints == FALSE,
-         inference == "score",
-         drop_first_occasions == 0) %>%
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Linear") %>%
   ggplot(aes(
     x = n,
     y = coverage,
-    color = interpolation,
+    color = inference,
     linetype = progression
   )) +
   geom_point() +
@@ -690,17 +720,164 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/coverage-score-adap.pdf",
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
+ggsave(filename = "figures/main-text/coverage.pdf",
        device = "pdf",
        width = double_width,
        height = double_height,
        units = "cm",
        dpi = res)
 
-# For the previous plot, there were a few settings where the confidence
-# intervals could not always be computed. However, this proportion is maximum
-# 0.2%. This also only happened in the n = 50 settings.
+## Simulation Results with Parametric Bootstrap ----
+
+results_tbl_estimation %>%
+  # Change progression from character to factor variable. This ensures that the
+  # line types are consistent with the previous graphs.
+  mutate(progression = factor(progression)) %>%
+  filter(constraints == FALSE,
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Linear") %>%
+  ggplot(aes(
+    x = n,
+    y = empirical_sd,
+    color = inference,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+  geom_point(
+    data = results_tbl_estimation %>%
+      filter(constraints == FALSE,
+             inference %in% c("GLS", "Adaptive Weights"),
+             drop_first_occasions == 0, 
+             interpolation == "Linear"),
+    mapping = aes(x = n, y = median_se_bs),
+    shape = 2
+  ) +
+  scale_y_continuous(trans = "log10", name = "Empirical SD and Median Estimated SE") +
+  scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
+  scale_linetype(name = "Progression Rate", drop = FALSE) +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
+  facet_grid(gamma_slowing ~ factor(`Follow Up`, levels = c("24 Months", "36(-30) Months", "36 Months"))) +
+  scale_color_brewer(type = "qual",
+                     palette = 2,
+                     name = "Estimator")
+ggsave(
+  filename = "figures/web-appendix/se-bs.pdf",
+  device = "pdf",
+  width = double_width,
+  height = double_height,
+  units = "cm",
+  dpi = res
+)
+
+results_tbl_inference %>%
+  # Change progression from character to factor variable. This ensure that the
+  # line types are consistent with the previous graphs.
+  mutate(progression = as.factor(progression)) %>%
+  filter(constraints == FALSE,
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Linear") %>%
+  ggplot(aes(
+    x = n,
+    y = coverage_bs,
+    color = inference,
+    linetype = progression
+  )) +
+  geom_point() +
+  geom_line() +
+  geom_hline(
+    # Add horizontal lines to indicate the 0.95 nominal coverage.
+    data = tidyr::expand_grid(
+      coverage = 0.95,
+      gamma_slowing = c(0.5, 0.75, 0.9, 1)
+    ),
+    mapping = aes(yintercept = coverage),
+    alpha = 0.5
+  ) +
+  xlab("Sample Size (n)") +
+  ylab(latex2exp::TeX("Empirical Coverage")) +
+  ylim(c(0.75, 1)) +
+  scale_linetype(name = "Progression Rate", drop = FALSE) +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
+  facet_grid(gamma_slowing ~ factor(`Follow Up`,
+                                    levels = c("24 Months", "36(-30) Months", "36 Months"))) +
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
+ggsave(filename = "figures/main-text/coverage-bs.pdf",
+       device = "pdf",
+       width = double_width,
+       height = double_height,
+       units = "cm",
+       dpi = res)
+
+results_tbl_inference %>%
+  # Change progression from character to factor variable. This ensure that the
+  # line types are consistent with the previous graphs.
+  mutate(progression = as.factor(progression)) %>%
+  filter(constraints == FALSE,
+         inference %in% c("GLS", "Adaptive Weights"),
+         drop_first_occasions == 0, 
+         interpolation == "Linear") %>%
+  ggplot(
+    aes(
+      x = n,
+      y = rejection_rate_bs,
+      color = inference,
+      linetype = progression
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  geom_point(
+    data = results_tbl_inference %>%
+      filter(constraints == FALSE,
+             inference %in% c("GLS", "Adaptive Weights"),
+             drop_first_occasions == 0, 
+             interpolation == "Linear") ,
+    mapping = aes(x = n,
+                  y = rejection_rate_mmrm),
+    alpha = 0.5,
+    color = "gray"
+  ) +
+  geom_line(
+    data = results_tbl_inference %>%
+      filter(constraints == FALSE,
+             inference %in% c("GLS", "Adaptive Weights"),
+             drop_first_occasions == 0, 
+             interpolation == "Linear") ,
+    mapping = aes(x = n,
+                  y = rejection_rate_mmrm,
+                  linetype = progression),
+    alpha = 0.75,
+    color = "gray"
+  ) +
+  geom_hline(
+    # Add horizontal lines to indicate the 0.05 nominal error rate in the null
+    # settings.
+    data = tidyr::expand_grid(
+      rejection_rate = 0.05,
+      drop_first_occasions = 0,
+      gamma_slowing = 1
+    ),
+    mapping = aes(yintercept = rejection_rate),
+    alpha = 0.5
+  ) +
+  geom_blank(data = facet_lims_tbl, aes(gamma_slowing, rejection_rate)) +
+  xlab("Sample Size (n)") +
+  ylab(latex2exp::TeX("Empirical Power or Type 1 Error Rate")) +
+  scale_linetype(name = "Progression Rate", drop = FALSE) +
+  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
+  facet_grid(gamma_slowing ~ factor(`Follow Up`,
+                                    levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
+ggsave(filename = "figures/web-appendix/error-rates-bs.pdf",
+       device = "pdf",
+       width = double_width,
+       height = double_height,
+       units = "cm",
+       dpi = res)
 
 # Data Generating Mechanism ----
 

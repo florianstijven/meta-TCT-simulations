@@ -3,16 +3,30 @@
 args = commandArgs(trailingOnly=TRUE)
 options(RENV_CONFIG_SANDBOX_ENABLED = FALSE)
 Sys.setenv(TZ='Europe/Brussels')
-ncores = as.integer(args[1])
 # Print R-version for better reproducibility.
 print(version)
 # Ensure to the state of packages is up-to-date.
 renv::restore()
+
+# Number of independent replications for each setting.
+N_trials = as.integer(args[1])
+
 # Load the required packages. 
 library(TCT)
 library(mmrm)
 library(dplyr)
+library(future)
+library(furrr)
+
 a = Sys.time()
+
+# Set up parallel computing
+if (parallelly::supportsMulticore()) {
+  plan("multicore", workers = parallel::detectCores() - 1)
+} else {
+  plan(multisession, workers = parallel::detectCores() - 1)
+}
+
 # Variance-Covariance matrix as reported by Raket (2022, doi: 10.1002/sim.9581) in
 # section 5.1.
 vcov_ref = matrix(c(45.1, 40.0, 45.1, 54.9, 53.6, 53.6, 60.8,
@@ -51,8 +65,6 @@ settings = settings %>%
                        c(0, 6, 12, 18, 24, 36))
   ))
 
-# Number of independent replications for each setting.
-N_trials = 5e3
 # Set the seed for reproducibility.
 set.seed(1)
 
@@ -252,27 +264,21 @@ settings = settings %>%
   cross_join(tibble(trial_number = 1:N_trials))
 
 # Fit the MMRM model for each generated data set.
-cl = parallel::makeCluster(ncores, type = "FORK")
-parallel::clusterEvalQ(cl, library(TCT))
-parallel::clusterEvalQ(cl, library(dplyr))
-parallel::clusterExport(cl,
-                        c(
-                          "simulate_data",
-                          "analyze_mmrm_new",
-                          "simulate_and_analyze",
-                          "extract_mmrm"
-                        ))
 results_tbl = settings %>%
   mutate(
-    mmrm_extracted = parallel::clusterMap(
-      cl = cl,
-      n = n,
-      time_points = time_points,
-      ref_means = ref_means,
-      trt_mean = trt_means,
-      vcov = vcov,
-      seed = trial_number,
-      fun = simulate_to_extract
+    mmrm_extracted = future_pmap(
+      .l = list(n = n,
+                time_points = time_points,
+                ref_means = ref_means,
+                trt_mean = trt_means,
+                vcov = vcov,
+                seed = trial_number),
+      .f = simulate_to_extract,
+      .options = furrr_options(
+        seed = TRUE,
+        stdout = FALSE,
+        conditions = character()
+      )
     )
   )
 
@@ -301,37 +307,29 @@ results_tbl = results_tbl %>%
   cross_join(
     tidyr::expand_grid(
       drop_first_occasions = 0,
-      constraints = c(TRUE, FALSE),
+      constraints = c(FALSE),
       interpolation = c("spline", "linear"),
-      inference = c("wald", "score", "least-squares"),
+      inference = c("score", "least-squares"),
       B = c(0, 5e2)
-    ) %>%
-      # We do not consider pre-selected measurement occasions if we adaptively
-      # estimate the weights because this is contradictory. Either the weights are
-      # selected a priori, or the weights are determined adaptively.
-      filter(!(
-        drop_first_occasions > 0 & inference == "score"
-      ))
+    )
   ) %>%
-  # We only use the bootstrap for least-squares with nore-estimation under 
-  # constraints and no measurements dropped.
-  filter(!(B == 5e2 &
-             (constraints | drop_first_occasions == 1 | inference != "least-squares" | progression == "fast"))) %>%
+  # We only use the bootstrap for the normal progression scenario.
+  filter(!(B == 5e2 & (progression == "fast" | interpolation == "linear"))) %>%
   # If for a given setting, we consider bootstrap replications, then we can
   # delete the scenarios corresponding to B == 0 because we would be fitting the
   # same model twice.
-  filter(!(B == 0 &
-             !(constraints | drop_first_occasions == 1 | inference != "least-squares" | progression == "fast")))
+  filter(!(B == 0 & (progression == "fast" | interpolation == "linear")))
 
-results_tbl$TCT_meta_fit = parallel::clusterMap(
-  cl = cl,
-  coef_mmrm = results_tbl$coef_mmrm,
-  vcov_mmrm = results_tbl$vcov_mmrm,
-  constraints = results_tbl$constraints,
-  interpolation = results_tbl$interpolation,
-  K = results_tbl$K,
-  time_points = results_tbl$time_points,
-  fun = function(coef_mmrm,
+results_tbl$TCT_meta_fit = future_pmap(
+  .l = list(
+    coef_mmrm = results_tbl$coef_mmrm,
+    vcov_mmrm = results_tbl$vcov_mmrm,
+    constraints = results_tbl$constraints,
+    interpolation = results_tbl$interpolation,
+    K = results_tbl$K,
+    time_points = results_tbl$time_points
+  ),
+  .f = function(coef_mmrm,
                  vcov_mmrm,
                  constraints,
                  interpolation,
@@ -356,11 +354,7 @@ results_tbl$TCT_meta_fit = parallel::clusterMap(
       }
     )
     return(out)
-  },
-  SIMPLIFY = FALSE,
-  USE.NAMES = TRUE,
-  RECYCLE = FALSE,
-  .scheduling = "dynamic"
+  }
 )
 
 attr(results_tbl$TCT_meta_fit, "split_type") = NULL
@@ -372,29 +366,28 @@ print("meta-TCT finished")
 
 
 # Estimate common acceleration factor.
-results_tbl$TCT_meta_common_fit = parallel::clusterMap(
-  cl = cl,
-  TCT_meta_fit = results_tbl$TCT_meta_fit,
-  drop_first_occasions = results_tbl$drop_first_occasions,
-  inference = results_tbl$inference,
-  constraints = results_tbl$constraints,
-  B = results_tbl$B,
-  gamma_slowing = results_tbl$gamma_slowing,
-  fun = function(TCT_meta_fit,
-                 drop_first_occasions,
-                 inference,
-                 constraints,
-                 B, 
-                 gamma_slowing) {
+results_tbl$TCT_meta_common_fit = future_pmap(
+  .l = list(
+    TCT_meta_fit = results_tbl$TCT_meta_fit,
+    drop_first_occasions = results_tbl$drop_first_occasions,
+    inference = results_tbl$inference,
+    constraints = results_tbl$constraints,
+    B = results_tbl$B,
+    gamma_slowing = results_tbl$gamma_slowing
+  ),
+  .f = function(TCT_meta_fit,
+                drop_first_occasions,
+                inference,
+                constraints,
+                B,
+                gamma_slowing) {
     # Return NA if TCT_meta_fit is a missing value itself.
-    if (!is.list(TCT_meta_fit)) return(NA)
+    if (!is.list(TCT_meta_fit))
+      return(NA)
     
     type = NULL
     if (inference == "score")
       type = "custom"
-    # Some analyses use the bootstrap, and are thus stochastic. We therefore set
-    # the seed next to avoid differences depending on the parallel setup.
-    set.seed(1)
     out = tryCatch(
       TCT_meta_common(
         TCT_Fit = TCT_meta_fit,
@@ -411,10 +404,11 @@ results_tbl$TCT_meta_common_fit = parallel::clusterMap(
     )
     return(out)
   },
-  SIMPLIFY = FALSE,
-  USE.NAMES = TRUE,
-  RECYCLE = FALSE,
-  .scheduling = "dynamic"
+  .options = furrr_options(
+    seed = TRUE,
+    stdout = FALSE,
+    conditions = character()
+  )
 )
 print(Sys.time() - a)
 print("meta-TCT-common finished")
@@ -424,17 +418,15 @@ print("meta-TCT-common finished")
 # p-value and confidence intervals. Because this can take some time (confidence
 # intervals are computed numerically), we first save the summary-object to the
 # tibble.
-results_tbl$summary_TCT_common = parallel::parLapplyLB(
-  cl = cl,
-  X = results_tbl$TCT_meta_common_fit,
-  fun = function(x) {
+results_tbl$summary_TCT_common = future_pmap(
+  .l = list(x = results_tbl$TCT_meta_common_fit),
+  .f = function(x) {
     if (is.list(x))
       return(summary(x))
     else
       return(NA)
   }
 )
-parallel::stopCluster(cl)
 
 print("Common acceleration factors estimated")
 
