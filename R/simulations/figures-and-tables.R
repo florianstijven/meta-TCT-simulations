@@ -15,6 +15,8 @@ theme_set(
   )
 )
 
+# Set directories to which figures anda tables are saved.
+
 
 # Read data set with results of the simulation study.
 results_tbl = readRDS(file = "results_simulation_lean.rds")
