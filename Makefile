@@ -28,16 +28,16 @@ R/simulations/simulations.Rout: R/simulations/processing.R R/simulations/simulat
 	
 	
 results/reports/application/lighthouse-analysis-with-code.html: R/application/real-data-analysis/lighthouse-analysis.Rmd
-	Rscript -e 'library(rmarkdown); rmarkdown::render(input = "R/application/real-data-analysis/lighthouse-analysis.Rmd", output_format = "html_document", output_file = "lighthouse-analysis-with-code.html", output_dir = "results/reports/application", params = list(printcode = TRUE))'
+	Rscript -e 'library(rmarkdown); rmarkdown::render(input = "R/application/real-data-analysis/lighthouse-analysis.Rmd", output_file = "lighthouse-analysis-with-code.html", output_dir = "results/reports/application", params = list(printcode = TRUE))'
 
 results/reports/application/lighthouse-analysis-wo-code.html: R/application/real-data-analysis/lighthouse-analysis.Rmd
-	Rscript -e 'library(rmarkdown); rmarkdown::render(input = "R/application/real-data-analysis/lighthouse-analysis.Rmd", output_format = "html_document", output_file = "lighthouse-analysis-wo-code.html", output_dir = "results/reports/application", params = list(printcode = FALSE))'
+	Rscript -e 'library(rmarkdown); rmarkdown::render(input = "R/application/real-data-analysis/lighthouse-analysis.Rmd", output_file = "lighthouse-analysis-wo-code.html", output_dir = "results/reports/application", params = list(printcode = FALSE))'
 
 
 
 results/reports/synthetic-application/synthetic-application-with-code.html: R/application/real-data-analysis/lighthouse-analysis.Rmd
-	Rscript -e 'library(rmarkdown); rmarkdown::render(input = "R/application/mock-analysis/analysis.Rmd", output_format = "html_document", output_file = "synthetic-application-with-code.html", output_dir = "results/reports/synthetic-application", params = list(printcode = TRUE))'
+	Rscript -e 'library(rmarkdown); rmarkdown::render(input = "R/application/mock-analysis/analysis.Rmd", output_file = "synthetic-application-with-code.html", output_dir = "results/reports/synthetic-application", params = list(printcode = TRUE))'
 
 results/reports/synthetic-application/synthetic-application-wo-code.html: R/application/real-data-analysis/lighthouse-analysis.Rmd
-	Rscript -e 'library(rmarkdown); rmarkdown::render(input = "R/application/mock-analysis/analysis.Rmd", output_format = "html_document", output_file = "synthetic-application-wo-code.html", output_dir = "results/reports/synthetic-application", params = list(printcode = FALSE))'
+	Rscript -e 'library(rmarkdown); rmarkdown::render(input = "R/application/mock-analysis/analysis.Rmd", output_file = "synthetic-application-wo-code.html", output_dir = "results/reports/synthetic-application", params = list(printcode = FALSE))'
 
