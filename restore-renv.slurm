@@ -13,6 +13,6 @@ export OMP_NUM_THREADS=1
 module use /apps/leuven/rocky8/sapphirerapids/2024a/modules/all
 module load GSL
 module load CMake
-module load R-bundle-CRAN
+module load R
 
 Rscript -e "renv::status()" -e "renv::restore()" - "renv::status()"
