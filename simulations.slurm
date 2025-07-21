@@ -10,10 +10,10 @@
 
 export OMP_NUM_THREADS=1
 
-module use /apps/leuven/rocky8/sapphirerapids/2022b/modules/all
+module use /apps/leuven/rocky8/sapphirerapids/2024a/modules/all
 module load GSL
 module load CMake
-module load R/4.3.2-foss-2022b
+module load R-bundle-CRAN
 
 make simulation
 
