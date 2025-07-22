@@ -198,7 +198,8 @@ results_tbl_estimation %>%
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
   scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
-ggsave(filename = "figures/web-appendix/mse.pdf",
+ggsave(filename = "mse.pdf",
+       path = dir_figures,
        device = "pdf",
        width = double_width,
        height = double_height,

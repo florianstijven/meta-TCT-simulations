@@ -320,7 +320,7 @@ results_tbl = results_tbl %>%
   # If for a given setting, we consider bootstrap replications, then we can
   # delete the scenarios corresponding to B == 0 because we would be fitting the
   # same model twice.
-  filter(!(B == 0 & (progression == "fast" | interpolation == "linear")))
+  filter(!(B == 0 & !(progression == "fast" | interpolation == "linear")))
 
 results_tbl$TCT_meta_fit = future_pmap(
   .l = list(
