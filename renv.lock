@@ -437,15 +437,14 @@
       ],
       "LazyData": "true",
       "VignetteBuilder": "knitr",
+      "Author": "First Last [aut, cre] (YOUR-ORCID-ID)",
+      "Maintainer": "First Last <first.last@example.com>",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
-      "RemoteRepo": "TCT",
       "RemoteUsername": "florianstijven",
-      "RemoteRef": "HEAD",
-      "RemoteSha": "cbf07f6e21ae974b1212f41e061b7765bfb812dc",
-      "NeedsCompilation": "no",
-      "Author": "First Last [aut, cre] (YOUR-ORCID-ID)",
-      "Maintainer": "First Last <first.last@example.com>"
+      "RemoteRepo": "TCT",
+      "RemoteRef": "main",
+      "RemoteSha": "cbf07f6e21ae974b1212f41e061b7765bfb812dc"
     },
     "TMB": {
       "Package": "TMB",
