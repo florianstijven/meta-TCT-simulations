@@ -10,9 +10,6 @@
 
 export OMP_NUM_THREADS=1
 
-module use /apps/leuven/rocky8/sapphirerapids/2024a/modules/all
-module load GSL
-module load CMake
-module load R
+module load R-bundle-CRAN/2024.11-foss-2024a
 
-Rscript -e "renv::status()" -e "renv::restore(exclude = 'mmrm')" - "renv::status()"
+Rscript -e "renv::status()" -e "renv::restore()" - "renv::status()"
