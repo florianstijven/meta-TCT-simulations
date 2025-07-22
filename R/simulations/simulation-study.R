@@ -2,28 +2,34 @@
 .libPaths()
 args = commandArgs(trailingOnly=TRUE)
 options(RENV_CONFIG_SANDBOX_ENABLED = FALSE)
-Sys.setenv(TZ='Europe/Brussels')
 # Print R-version for better reproducibility.
 print(version)
-# Ensure to the state of packages is up-to-date.
+# Ensure that the state of the R packages is correct.
 renv::restore()
 
 # Directory to save results in.
 dir_results = here::here("results", "raw-results", "simulations")
 
-# Number of independent replications for each setting.
+# Number of independent replications for each setting. This is specified as a 
+# command line argument.
 N_trials = as.integer(args[1])
 
-# Load the required packages. 
+# Load the required packages.
 library(TCT)
 library(mmrm)
 library(dplyr)
 library(future)
 library(furrr)
 
+# Start tracking time.
+
 a = Sys.time()
 
-# Set up parallel computing
+# Set up parallel computing. We use the `future` package to enable parallel
+# computing. The number of workers is set to the number of cores minus one. By
+# default, we try to use multicore processing (which relies on forking, this is
+# not possible on Winfows systems). Else, we use multisession which creates N
+# separate R processes.
 if (parallelly::supportsMulticore()) {
   plan("multicore", workers = parallel::detectCores() - 1)
 } else {
@@ -47,9 +53,9 @@ ref_means_list = list(
   fast = c(18, 19.7, 20.9, 22.7, 24.7, 27.1, 29.2)
 )
 
-# In the settings data frame, we define all settings for which we will generate
-# data. We consider all possible combinations of trial settings. 
-settings = tidyr::expand_grid(
+# In `settings_tbl`, we define all settings for which we will generate data. We
+# consider all possible combinations of trial settings.
+settings_tbl = tidyr::expand_grid(
   progression = c("normal", "fast"),
   gamma_slowing = c(1, 0.9, 0.75, 0.5),
   n = c(50, 200, 500, 1000),
@@ -57,6 +63,7 @@ settings = tidyr::expand_grid(
                       "36 Months", 
                       "36(-30) Months")
 ) 
+
 
 settings = settings %>%
   left_join(tibble(
@@ -68,7 +75,9 @@ settings = settings %>%
                        c(0, 6, 12, 18, 24, 36))
   ))
 
-# Set the seed for reproducibility.
+# Set the seed for reproducibility. Reproducibility of the random number
+# generator in the parallel computations below is handled by the `future` and 
+# `furrr` packages.
 set.seed(1)
 
 
@@ -108,13 +117,9 @@ simulate_data = function(n,
                          time_points,
                          ref_means,
                          trt_means,
-                         vcov,
-                         seed) {
+                         vcov) {
   # Character vector for naming the various measurement occasions.
   time_names = paste0("month_", time_points)
-  
-  # Generate data.
-  withr::local_seed(seed)
   
   tibble(as_tibble(
     # Generate data for the control group from a multivariate normal
@@ -171,16 +176,14 @@ simulate_and_analyze = function(n,
                                 time_points,
                                 ref_means,
                                 trt_means,
-                                vcov,
-                                seed, 
+                                vcov, 
                                 reml = TRUE) {
   simulated_data = simulate_data(
     n = n,
     time_points = time_points,
     ref_means = ref_means,
     trt_means = trt_means,
-    vcov = vcov,
-    seed = seed
+    vcov = vcov
   )
   analyze_mmrm_new(simulated_data, type = "full", reml = reml)
 }
@@ -220,14 +223,12 @@ simulate_to_extract = function(n,
                                ref_means,
                                trt_means,
                                vcov,
-                               seed, 
                                reml = TRUE) {
   mmrm_fitted = simulate_and_analyze(n,
                        time_points,
                        ref_means,
                        trt_means,
                        vcov,
-                       seed, 
                        reml = TRUE)
   extract_mmrm(mmrm_fitted)
 }
@@ -261,8 +262,7 @@ settings = settings %>%
   ) %>%
   ungroup()
 
-# Duplicate rows N_trial times. We add a trial identifier which further serves
-# as the seed to generate the trial data.
+# Duplicate rows N_trial times. We add a trial identifier.
 settings = settings %>%
   cross_join(tibble(trial_number = 1:N_trials))
 
@@ -274,8 +274,7 @@ results_tbl = settings %>%
                 time_points = time_points,
                 ref_means = ref_means,
                 trt_mean = trt_means,
-                vcov = vcov,
-                seed = trial_number),
+                vcov = vcov),
       .f = simulate_to_extract,
       .options = furrr_options(
         seed = TRUE,
@@ -285,7 +284,7 @@ results_tbl = settings %>%
     )
   )
 
-# results_tbl is not yet in an easy to process format because the mmrm_extracted
+# `results_tbl` is not yet in an easy to process format because the mmrm_extracted
 # variable is a list of lists. We put the list elements into separate variables.
 # We also drop variables that are not used further on.
 results_tbl = results_tbl %>%
