@@ -15,4 +15,4 @@ module load GSL
 module load CMake
 module load R
 
-Rscript -e "renv::status()" -e "renv::restore()" - "renv::status()"
+Rscript -e "renv::status()" -e "renv::restore(exclude = 'mmrm')" - "renv::status()"
