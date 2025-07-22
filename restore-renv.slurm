@@ -10,7 +10,7 @@
 
 export OMP_NUM_THREADS=1
 
-module uload GCC CMake GSL
+module load GCC CMake GSL
 module load R/4.4.2-gfbf-2024a
 module load R-bundle-CRAN/2024.11-foss-2024a
 
