@@ -65,7 +65,7 @@ settings_tbl = tidyr::expand_grid(
 ) 
 
 
-settings = settings %>%
+settings_tbl = settings_tbl %>%
   left_join(tibble(
     time_points_chr = c("24 Months",
                         "36 Months",
@@ -235,7 +235,7 @@ simulate_to_extract = function(n,
 
 #---------
 
-settings = settings %>%
+settings_tbl = settings_tbl %>%
   # Group by each row.
   rowwise(everything()) %>%
   # Compute a set of variables that will be useful further on.
@@ -263,11 +263,11 @@ settings = settings %>%
   ungroup()
 
 # Duplicate rows N_trial times. We add a trial identifier.
-settings = settings %>%
+settings_tbl = settings_tbl %>%
   cross_join(tibble(trial_number = 1:N_trials))
 
 # Fit the MMRM model for each generated data set.
-results_tbl = settings %>%
+results_tbl = settings_tbl %>%
   mutate(
     mmrm_extracted = future_pmap(
       .l = list(n = n,
