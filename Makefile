@@ -21,9 +21,9 @@ application-synthetic: R/application/data-exploration-synthetic.Rout \
 	
 	
 results/raw-results/simulations/results_simulation_full.rds: R/simulations/simulation-study.R
-	Rscript R/simulations/simulation-study.R 10 > R/simulations/simulation-study.Rout 2> R/simulations/simulation-study.Rout
+	Rscript R/simulations/simulation-study.R 50 > R/simulations/simulation-study.Rout 2> R/simulations/simulation-study.Rout
 	
-R/simulations/simulations.Rout: R/simulations/processing.R R/simulations/simulation-study.R
+R/simulations/processing.Rout: R/simulations/processing.R R/simulations/simulation-study.R
 	Rscript R/simulations/processing.R > $@ 2> $@
 	
 	
