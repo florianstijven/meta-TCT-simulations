@@ -311,7 +311,7 @@ results_tbl = results_tbl %>%
       drop_first_occasions = 0,
       constraints = c(FALSE),
       interpolation = c("spline", "linear"),
-      inference = c("score", "least-squares"),
+      inference = c("contrast", "least-squares"),
       B = c(0, 5e2)
     )
   ) %>%
@@ -387,9 +387,6 @@ results_tbl$TCT_meta_common_fit = future_pmap(
     if (!is.list(TCT_meta_fit))
       return(NA)
     
-    type = NULL
-    if (inference == "score")
-      type = "custom"
     out = tryCatch(
       TCT_meta_common(
         TCT_Fit = TCT_meta_fit,
@@ -397,7 +394,6 @@ results_tbl$TCT_meta_common_fit = future_pmap(
         B = B,
         select_coef = (drop_first_occasions + 1):length(coef(TCT_meta_fit)),
         constraints = constraints,
-        type = type,
         start_gamma = gamma_slowing
       ),
       error = function(cond) {
