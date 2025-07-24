@@ -13,12 +13,14 @@ dir_tables = here::here("results", "tables", "simulations")
 # Set the theme for all plots.
 theme_set(
   theme_get() +
-  theme(
-    legend.position = "bottom",
-    legend.margin = margin(l = -1),
-    legend.direction = "horizontal",
-    legend.box = "vertical"
-  )
+    theme(
+      legend.position = "bottom",
+      legend.margin = margin(l = -1),
+      legend.direction = "horizontal",
+      legend.box = "vertical",
+      legend.spacing.y = unit(0.1, "cm"),
+      legend.box.spacing = unit(0.1, "cm")
+    )
 )
 
 # Set directories to which figures anda tables are saved.
@@ -66,7 +68,7 @@ results_tbl_estimation = results_tbl %>%
     inference = forcats::fct_recode(
       inference,
       "GLS" = "least-squares",
-      "Adaptive Weights" = "score"
+      "Adaptive Weights" = "contrast"
     )
   )
 
@@ -117,11 +119,12 @@ results_tbl_inference = results_tbl %>%
     inference = forcats::fct_recode(
       inference,
       "GLS" = "least-squares",
-      "Adaptive Weights" = "score"
+      "Adaptive Weights" = "contrast"
     )
   )
 
-
+# vector of the samples sizes considered in the simulation study.
+sample_sizes = unique(results_tbl$n)
 
 # Simulation Results with natural cubic spline interpolation ----
 
@@ -130,7 +133,7 @@ results_tbl_inference = results_tbl %>%
 # Define dummy tibble that allows us to set the axis limits in each facet
 # separately.
 facet_lims_tbl = tibble(
-  n = NA,
+  n = 100,
   gamma_slowing = rep(c(0.5, 0.75, 0.9, 1), each = 2),
   mean_estimate = c(0.40, 0.60, 0.65, 0.85, 0.80, 1.00, 0.90, 1.10),
   rejection_rate = c(0, 1, 0, 1, 0, 1, 0, 0.25),
@@ -158,7 +161,7 @@ results_tbl_estimation %>%
              alpha = 0.30) +
   geom_hline(mapping = aes(yintercept = gamma_slowing - 0.05),
              alpha = 0.30) +
-  geom_blank(data = facet_lims_tbl, aes(gamma_slowing, mean_estimate)) +
+  geom_blank(data = facet_lims_tbl) +
   xlab("Sample Size (n)") +
   ylab(latex2exp::TeX("E(\\hat{\\gamma})")) +
   scale_linetype(name = "Progression Rate") +
@@ -169,7 +172,8 @@ results_tbl_estimation %>%
   ) +
   guides(color = guide_legend(label.position = "right")) +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")  +
-  scale_y_continuous(n.breaks = 3)
+  scale_y_continuous(n.breaks = 3) +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10")
 ggsave(filename = "bias.pdf", 
        path = dir_figures,
        device = "pdf",
@@ -192,7 +196,7 @@ results_tbl_estimation %>%
   geom_point() +
   geom_line() +
   scale_y_continuous(trans = "log10", name = "MSE", limits = c(0.0005, 5)) +
-  scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate") +
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
@@ -231,7 +235,7 @@ results_tbl_estimation %>%
   scale_y_continuous(trans = "log10", 
                      name = "Empirical SD and Median Estimated SE",
                      limits = c(0.025, 2)) +
-  scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate") +
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
@@ -265,7 +269,7 @@ results_tbl_inference %>%
   geom_point(
     data = results_tbl_inference %>%
       filter(constraints == FALSE,
-             inference == "least-squares",
+             inference == "GLS",
              drop_first_occasions == 0),
     mapping = aes(x = n,
                   y = rejection_rate_mmrm),
@@ -275,7 +279,7 @@ results_tbl_inference %>%
   geom_line(
     data = results_tbl_inference %>%
       filter(constraints == FALSE,
-             inference == "least-squares",
+             inference == "GLS",
              drop_first_occasions == 0),
     mapping = aes(x = n,
                   y = rejection_rate_mmrm,
@@ -294,7 +298,7 @@ results_tbl_inference %>%
     mapping = aes(yintercept = rejection_rate),
     alpha = 0.5
   ) +
-  geom_blank(data = facet_lims_tbl, aes(gamma_slowing, rejection_rate)) +
+  geom_blank(data = facet_lims_tbl) +
   xlab("Sample Size (n)") +
   ylab(latex2exp::TeX("Empirical Power or Type 1 Error Rate")) +
   scale_linetype(name = "Progression Rate") +
@@ -302,8 +306,9 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
-  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
-ggsave(filename = "power-type1-error-nl-gls.pdf",
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator") +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
+ggsave(filename = "power-type1-errors.pdf",
        path = dir_figures,
        device = "pdf",
        width = double_width,
@@ -342,7 +347,8 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator") +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
 ggsave(filename = "coverage.pdf",
        path = dir_figures,
        device = "pdf",
@@ -359,6 +365,7 @@ results_tbl_estimation %>%
   mutate(progression = factor(progression)) %>%
   filter(
     constraints == FALSE,
+    progression == "Normal",
     inference %in% c("GLS", "Adaptive Weights"),
     drop_first_occasions == 0,
     interpolation == "Natural Cubic Spline"
@@ -375,6 +382,7 @@ results_tbl_estimation %>%
     data = results_tbl_estimation %>%
       filter(
         constraints == FALSE,
+        progression == "Normal",
         inference %in% c("GLS", "Adaptive Weights"),
         drop_first_occasions == 0,
         interpolation == "Natural Cubic Spline"
@@ -383,7 +391,7 @@ results_tbl_estimation %>%
     shape = 2
   ) +
   scale_y_continuous(trans = "log10", name = "Empirical SD and Median Estimated SE") +
-  scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate", drop = FALSE) +
   theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(`Follow Up`, levels = c("24 Months", "36(-30) Months", "36 Months"))) +
@@ -406,6 +414,7 @@ results_tbl_inference %>%
   mutate(progression = as.factor(progression)) %>%
   filter(
     constraints == FALSE,
+    progression == "Normal",
     inference %in% c("GLS", "Adaptive Weights"),
     drop_first_occasions == 0,
     interpolation == "Natural Cubic Spline"
@@ -434,7 +443,8 @@ results_tbl_inference %>%
   theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator") +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
 ggsave(filename = "coverage-bs.pdf",
        path = dir_figures,
        device = "pdf",
@@ -449,6 +459,7 @@ results_tbl_inference %>%
   mutate(progression = as.factor(progression)) %>%
   filter(
     constraints == FALSE,
+    progression == "Normal",
     inference %in% c("GLS", "Adaptive Weights"),
     drop_first_occasions == 0,
     interpolation == "Natural Cubic Spline"
@@ -467,7 +478,6 @@ results_tbl_inference %>%
     data = results_tbl_inference %>%
       filter(
         constraints == FALSE,
-        inference == "least-squares",
         drop_first_occasions == 0,
         progression == "Normal"
       ),
@@ -480,9 +490,8 @@ results_tbl_inference %>%
     data = results_tbl_inference %>%
       filter(
         constraints == FALSE,
-        inference == "least-squares",
-        drop_first_occasions == 0,
-        progression == "Normal"
+        progression == "Normal",
+        drop_first_occasions == 0
       ),
     mapping = aes(x = n,
                   y = rejection_rate_mmrm,
@@ -501,14 +510,15 @@ results_tbl_inference %>%
     mapping = aes(yintercept = rejection_rate),
     alpha = 0.5
   ) +
-  geom_blank(data = facet_lims_tbl, aes(gamma_slowing, rejection_rate)) +
+  geom_blank(data = facet_lims_tbl, aes(y = rejection_rate)) +
   xlab("Sample Size (n)") +
   ylab(latex2exp::TeX("Empirical Power or Type 1 Error Rate")) +
   scale_linetype(name = "Progression Rate", drop = FALSE) +
   theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
   facet_grid(gamma_slowing ~ factor(`Follow Up`,
                                     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
-  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator") +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
 ggsave(filename = "error-rates-bs.pdf",
        path = dir_figures,
        device = "pdf",
@@ -554,7 +564,7 @@ results_tbl_estimation %>%
              alpha = 0.30) +
   geom_hline(mapping = aes(yintercept = gamma_slowing - 0.05),
              alpha = 0.30) +
-  geom_blank(data = facet_lims_tbl, aes(gamma_slowing, mean_estimate)) +
+  geom_blank(data = facet_lims_tbl) +
   xlab("Sample Size (n)") +
   ylab(latex2exp::TeX("E(\\hat{\\gamma})")) +
   scale_linetype(name = "Progression Rate") +
@@ -565,7 +575,8 @@ results_tbl_estimation %>%
   ) +
   guides(color = guide_legend(label.position = "right")) +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")  +
-  scale_y_continuous(n.breaks = 3)
+  scale_y_continuous(n.breaks = 3) +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
 ggsave(filename = "bias-linear.pdf",
        path = dir_figures,
        device = "pdf",
@@ -593,7 +604,8 @@ results_tbl_estimation %>%
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
+  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation") +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
 ggsave(filename = "mse-linear.pdf",
        path = dir_figures,
        device = "pdf",
@@ -632,7 +644,8 @@ results_tbl_estimation %>%
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
+  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation") +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
 ggsave(filename = "se-linear.pdf",
        path = dir_figures,
        device = "pdf",
@@ -692,7 +705,7 @@ results_tbl_inference %>%
     mapping = aes(yintercept = rejection_rate),
     alpha = 0.5
   ) +
-  geom_blank(data = facet_lims_tbl, aes(gamma_slowing, rejection_rate)) +
+  geom_blank(data = facet_lims_tbl) +
   xlab("Sample Size (n)") +
   ylab(latex2exp::TeX("Empirical Power or Type 1 Error Rate")) +
   scale_linetype(name = "Progression Rate") +
@@ -700,8 +713,9 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
-  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
-ggsave(filename = "power-type1-error-nl-gls-linear.pdf",
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator") +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
+ggsave(filename = "power-type1-error-linear.pdf",
        path = dir_figures,
        device = "pdf",
        width = double_width,
@@ -740,162 +754,9 @@ results_tbl_inference %>%
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator") +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
 ggsave(filename = "coverage-linear.pdf",
-       path = dir_figures,
-       device = "pdf",
-       width = double_width,
-       height = double_height,
-       units = "cm",
-       dpi = res)
-
-## Simulation Results with Parametric Bootstrap ----
-
-results_tbl_estimation %>%
-  # Change progression from character to factor variable. This ensures that the
-  # line types are consistent with the previous graphs.
-  mutate(progression = factor(progression)) %>%
-  filter(constraints == FALSE,
-         inference %in% c("GLS", "Adaptive Weights"),
-         drop_first_occasions == 0, 
-         interpolation == "Linear") %>%
-  ggplot(aes(
-    x = n,
-    y = empirical_sd,
-    color = inference,
-    linetype = progression
-  )) +
-  geom_point() +
-  geom_line() +
-  geom_point(
-    data = results_tbl_estimation %>%
-      filter(constraints == FALSE,
-             inference %in% c("GLS", "Adaptive Weights"),
-             drop_first_occasions == 0, 
-             interpolation == "Linear"),
-    mapping = aes(x = n, y = median_se_bs),
-    shape = 2
-  ) +
-  scale_y_continuous(trans = "log10", name = "Empirical SD and Median Estimated SE") +
-  scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
-  scale_linetype(name = "Progression Rate", drop = FALSE) +
-  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
-  facet_grid(gamma_slowing ~ factor(`Follow Up`, levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual",
-                     palette = 2,
-                     name = "Estimator")
-ggsave(
-  filename = "se-bs.pdf",
-  path = dir_figures,
-  device = "pdf",
-  width = double_width,
-  height = double_height,
-  units = "cm",
-  dpi = res
-)
-
-results_tbl_inference %>%
-  # Change progression from character to factor variable. This ensure that the
-  # line types are consistent with the previous graphs.
-  mutate(progression = as.factor(progression)) %>%
-  filter(constraints == FALSE,
-         inference %in% c("GLS", "Adaptive Weights"),
-         drop_first_occasions == 0, 
-         interpolation == "Linear") %>%
-  ggplot(aes(
-    x = n,
-    y = coverage_bs,
-    color = inference,
-    linetype = progression
-  )) +
-  geom_point() +
-  geom_line() +
-  geom_hline(
-    # Add horizontal lines to indicate the 0.95 nominal coverage.
-    data = tidyr::expand_grid(
-      coverage = 0.95,
-      gamma_slowing = c(0.5, 0.75, 0.9, 1)
-    ),
-    mapping = aes(yintercept = coverage),
-    alpha = 0.5
-  ) +
-  xlab("Sample Size (n)") +
-  ylab(latex2exp::TeX("Empirical Coverage")) +
-  ylim(c(0.75, 1)) +
-  scale_linetype(name = "Progression Rate", drop = FALSE) +
-  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
-  facet_grid(gamma_slowing ~ factor(`Follow Up`,
-                                    levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
-ggsave(filename = "coverage-bs.pdf",
-       path = dir_figures,
-       device = "pdf",
-       width = double_width,
-       height = double_height,
-       units = "cm",
-       dpi = res)
-
-results_tbl_inference %>%
-  # Change progression from character to factor variable. This ensure that the
-  # line types are consistent with the previous graphs.
-  mutate(progression = as.factor(progression)) %>%
-  filter(constraints == FALSE,
-         inference %in% c("GLS", "Adaptive Weights"),
-         drop_first_occasions == 0, 
-         interpolation == "Linear") %>%
-  ggplot(
-    aes(
-      x = n,
-      y = rejection_rate_bs,
-      color = inference,
-      linetype = progression
-    )
-  ) +
-  geom_point() +
-  geom_line() +
-  geom_point(
-    data = results_tbl_inference %>%
-      filter(constraints == FALSE,
-             inference %in% c("GLS", "Adaptive Weights"),
-             drop_first_occasions == 0, 
-             interpolation == "Linear") ,
-    mapping = aes(x = n,
-                  y = rejection_rate_mmrm),
-    alpha = 0.5,
-    color = "gray"
-  ) +
-  geom_line(
-    data = results_tbl_inference %>%
-      filter(constraints == FALSE,
-             inference %in% c("GLS", "Adaptive Weights"),
-             drop_first_occasions == 0, 
-             interpolation == "Linear") ,
-    mapping = aes(x = n,
-                  y = rejection_rate_mmrm,
-                  linetype = progression),
-    alpha = 0.75,
-    color = "gray"
-  ) +
-  geom_hline(
-    # Add horizontal lines to indicate the 0.05 nominal error rate in the null
-    # settings.
-    data = tidyr::expand_grid(
-      rejection_rate = 0.05,
-      drop_first_occasions = 0,
-      gamma_slowing = 1
-    ),
-    mapping = aes(yintercept = rejection_rate),
-    alpha = 0.5
-  ) +
-  geom_blank(data = facet_lims_tbl, aes(gamma_slowing, rejection_rate)) +
-  xlab("Sample Size (n)") +
-  ylab(latex2exp::TeX("Empirical Power or Type 1 Error Rate")) +
-  scale_linetype(name = "Progression Rate", drop = FALSE) +
-  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
-  facet_grid(gamma_slowing ~ factor(`Follow Up`,
-                                    levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
-  scale_color_brewer(type = "qual", palette = 2, name = "Estimator")
-ggsave(filename = "error-rates-bs.pdf",
        path = dir_figures,
        device = "pdf",
        width = double_width,
@@ -980,84 +841,18 @@ trajectory_observed_tbl %>%
   scale_x_continuous(breaks = time_points) +
   scale_color_brewer(type = "qual", 
                      palette = 6,
-                     name = latex2exp::TeX("Acceleration Factor"), 
+                     name = latex2exp::TeX("\\gamma"), 
                      direction = -1) +
-  xlab("Months Since Randomization") +
-  ylab("Mean Trajectory") +
-  theme(legend.position = "bottom") +
-  theme(legend.position = "bottom", legend.margin = margin(l = -1)) +
-  facet_grid( ~ progression)
+  xlab("t") +
+  ylab(expr(f[0](gamma %.% t))) +
+  facet_grid(progression ~ .)
 ggsave(filename = "dgm-mean-trajectories.pdf",
        path = dir_figures,
        device = "pdf",
-       width = double_width,
-       height = double_height,
+       width = single_width,
+       height = single_height,
        units = "cm",
        dpi = res)
-
-# # Consider the "true" trajectories for the problematic setting
-# trajectory_interpolated_problematic_tbl = tibble(
-#   progression = c("Normal Progression"),
-#   gamma_slowing = c(0.9, 1),
-#   time_points = list(time_points[-6])
-# ) %>%
-#   rowwise(everything()) %>%
-#   summarise(
-#     ref_means = ref_means_list[progression],
-#     trajectory_interpolated = list(
-#       spline(
-#         x = time_points,
-#         y = ref_means[-6],
-#         xout = gamma_slowing * time_grid,
-#         method = "natural"
-#       )$y
-#     ),
-#     time_grid = list(time_grid)
-#   ) %>%
-#   ungroup() %>%
-#   mutate(treatment = ifelse(gamma_slowing == 1, "Control Treatment", "Active Treatment"))
-# 
-# trajectory_interpolated_problematic_tbl = trajectory_interpolated_problematic_tbl %>%
-#   rowwise(everything()) %>%
-#   reframe(tibble(
-#     trajectory_interpolated = unlist(trajectory_interpolated),
-#     time_grid = unlist(time_grid)
-#   )) %>%
-#   ungroup() %>%
-#   mutate(gamma_slowing = as.factor(gamma_slowing))
-# 
-# bind_rows(trajectory_interpolated_problematic_tbl %>%
-#             mutate("Measurement Pattern" = "36(-30) Months"),
-#           trajectory_interpolated_tbl %>%
-#             filter(progression == "Normal Progression",
-#                    gamma_slowing %in% c(0.9, 1)) %>%
-#             mutate("Measurement Pattern" = "36 Months")
-#           ) %>%
-# ggplot(aes(
-#   x = time_grid,
-#   y = trajectory_interpolated,
-#   color = gamma_slowing,
-#   linetype = `Measurement Pattern`
-# )) +
-#   geom_line() +
-#   scale_x_continuous(breaks = time_points) +
-#   scale_color_brewer(type = "qual", 
-#                      palette = 6,
-#                      name = latex2exp::TeX("Acceleration Factor"),
-#                      direction = -1) +
-#   xlab("Months Since Randomization") +
-#   ylab("Interpolated Mean Trajectory") +
-#   theme(legend.position = "bottom") +
-#   theme(legend.position = "bottom", legend.margin = margin(l = -1), 
-#         legend.direction = "vertical", legend.box = "horizontal") +
-#   facet_grid( ~ progression)
-# ggsave(filename = "figures/main-text/problematic-mean-trajectories.pdf",
-#        device = "pdf",
-#        width = single_width,
-#        height = single_height,
-#        units = "cm",
-#        dpi = res)
-
 
 
 # Illustration ------------------------------------------------------------
@@ -1080,7 +875,7 @@ trt_mapped_times = TCT:::get_new_time(
   y_obs = trt_means,
   method = "spline"
 )
-  
+
 tibble(time_grid, trajectory_points) %>%
   ggplot(aes(x = time_grid, y = trajectory_points)) +
   geom_line(color = RColorBrewer::brewer.pal(n = 4, name = "Set1")[1]) +
