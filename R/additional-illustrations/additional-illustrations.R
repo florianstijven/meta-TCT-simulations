@@ -1,6 +1,8 @@
 library(tidyverse)
 
-save_to = "figures/additional-illustrations/"
+# Set directories where the plots and tables are saved.
+dir_figures = here::here("results", "figures", "additional-illustrations")
+
 # Time Mapping ------------------------------------------------------------
 
 ref_means = c(17.5, 20.2, 24.7, 29.2)
@@ -82,7 +84,8 @@ time_mapping_base_plot + geom_segment(
   arrow = arrow(length = unit(0.25, 'cm'))
 ) 
 
-ggsave(filename = paste0(save_to, "time-mapping-vertical.pdf"),
+ggsave(filename = "time-mapping-vertical.pdf", 
+       path = dir_figures,
        device = "pdf",
        width = single_width,
        height = single_height,
@@ -107,7 +110,8 @@ time_mapping_base_plot + geom_segment(
   arrow = arrow(length = unit(0.25, 'cm'))
 ) 
 
-ggsave(filename = paste0(save_to, "time-mapping-horizontal.pdf"),
+ggsave(filename = "time-mapping-horizontal.pdf",
+       path = dir_figures,
        device = "pdf",
        width = single_width,
        height = single_height,
@@ -137,7 +141,8 @@ tibble(
   ggtitle("Proportional Slowing")
 
 
-ggsave(filename = "figures/additional-illustrations/proportional-slowing.pdf",
+ggsave(filename = "proportional-slowing.pdf",
+       path = dir_figures,
        device = "pdf",
        width = single_width,
        height = single_height,
@@ -167,7 +172,8 @@ tibble(
   ggtitle("Complex Time Mappings")
 
 
-ggsave(filename = "figures/additional-illustrations/proportional-slowing-offset.pdf",
+ggsave(filename = "proportional-slowing-offset.pdf",
+       path = dir_figures,
        device = "pdf",
        width = single_width,
        height = single_height,
