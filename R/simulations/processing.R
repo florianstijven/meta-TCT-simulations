@@ -308,7 +308,7 @@ results_tbl_inference %>%
     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator") +
   scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
-ggsave(filename = "power-type1-errors.pdf",
+ggsave(filename = "power-type1-error.pdf",
        path = dir_figures,
        device = "pdf",
        width = double_width,
@@ -519,7 +519,7 @@ results_tbl_inference %>%
                                     levels = c("24 Months", "36(-30) Months", "36 Months")), scales = "free") +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator") +
   scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
-ggsave(filename = "error-rates-bs.pdf",
+ggsave(filename = "power-type1-error-bs.pdf",
        path = dir_figures,
        device = "pdf",
        width = double_width,
