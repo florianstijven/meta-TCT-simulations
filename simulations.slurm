@@ -2,7 +2,7 @@
 #
 #SBATCH --job-name=meta-TCT-simulations
 #SBATCH --ntasks=1 --cpus-per-task=96
-#SBATCH --time=1:00:00
+#SBATCH --time=48:00:00
 #SBATCH --cluster=wice
 #SBATCH --partition=batch_sapphirerapids
 #SBATCH --mail-type=BEGIN,END,FAIL
