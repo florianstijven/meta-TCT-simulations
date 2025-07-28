@@ -23,11 +23,11 @@ theme_set(
     )
 )
 
-# Set directories to which figures anda tables are saved.
+# Set directories to which figures and tables are saved.
 
 
 # Read data set with results of the simulation study.
-results_tbl = readRDS(file = here::here(dir_results, "results_simulation_lean.rds"))
+results_tbl = readRDS(file = here::here(dir_results, "results_simulation.rds"))
 
 # Compute all summary measures regarding the performance of the estimators.
 results_tbl_estimation = results_tbl %>%
