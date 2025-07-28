@@ -2,7 +2,7 @@
 all: simulation \
 	application-synthetic
 	
-simulation: results/raw-results/simulations/results_simulation_full.rds \
+simulation: results/raw-results/simulations/results_simulation.rds \
 	R/simulations/simulations.Rout
 	
 application: results/reports/application/lighthouse-analysis-with-code.html \
