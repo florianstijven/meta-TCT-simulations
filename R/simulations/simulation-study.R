@@ -22,7 +22,6 @@ library(future)
 library(furrr)
 
 # Start tracking time.
-
 a = Sys.time()
 
 # Set up parallel computing. We use the `future` package to enable parallel
@@ -225,11 +224,11 @@ simulate_to_extract = function(n,
                                vcov,
                                reml = TRUE) {
   mmrm_fitted = simulate_and_analyze(n,
-                       time_points,
-                       ref_means,
-                       trt_means,
-                       vcov,
-                       reml = TRUE)
+                                     time_points,
+                                     ref_means,
+                                     trt_means,
+                                     vcov,
+                                     reml = TRUE)
   extract_mmrm(mmrm_fitted)
 }
 
@@ -322,25 +321,37 @@ results_tbl = results_tbl %>%
   # same model twice.
   filter(!(B == 0 & !(progression == "fast" | interpolation == "linear")))
 
-results_tbl$TCT_meta_fit = future_pmap(
+
+# Estimate the time-specific and common acceleration factors based on the
+# summary-level information from the MMRMs. We immediately extract the
+# estimates, SEs, and CIs we need and leave everything else out to save memory.
+results_tbl = future_pmap(
   .l = list(
     coef_mmrm = results_tbl$coef_mmrm,
     vcov_mmrm = results_tbl$vcov_mmrm,
     constraints = results_tbl$constraints,
     interpolation = results_tbl$interpolation,
     K = results_tbl$K,
-    time_points = results_tbl$time_points
+    time_points = results_tbl$time_points,
+    drop_first_occasions = results_tbl$drop_first_occasions,
+    inference = results_tbl$inference,
+    B = results_tbl$B,
+    gamma_slowing = results_tbl$gamma_slowing
   ),
   .f = function(coef_mmrm,
-                 vcov_mmrm,
-                 constraints,
-                 interpolation,
-                 K,
-                 time_points) {
+                vcov_mmrm,
+                constraints,
+                interpolation,
+                K,
+                time_points,
+                drop_first_occasions,
+                inference,
+                B,
+                gamma_slowing) {
     # The TCT_meta() function is called within a TryCatch() expression to
     # prevent the code from failing when one simulation fails. If TCT_meta()
-    # fails, an NA is returned. 
-    out = tryCatch(
+    # fails, an NA is returned.
+    TCT_meta_fit = tryCatch(
       TCT_meta(
         time_points = time_points,
         exp_estimates = coef_mmrm[K:(2 * K - 2)],
@@ -355,39 +366,11 @@ results_tbl$TCT_meta_fit = future_pmap(
         return(NA)
       }
     )
-    return(out)
-  }
-)
-
-attr(results_tbl$TCT_meta_fit, "split_type") = NULL
-attr(results_tbl$TCT_meta_fit, "split_labels") = NULL
-str(attributes(results_tbl$TCT_meta_fit))
-
-print(Sys.time() - a)
-print("meta-TCT finished")
-
-
-# Estimate common acceleration factor.
-results_tbl$TCT_meta_common_fit = future_pmap(
-  .l = list(
-    TCT_meta_fit = results_tbl$TCT_meta_fit,
-    drop_first_occasions = results_tbl$drop_first_occasions,
-    inference = results_tbl$inference,
-    constraints = results_tbl$constraints,
-    B = results_tbl$B,
-    gamma_slowing = results_tbl$gamma_slowing
-  ),
-  .f = function(TCT_meta_fit,
-                drop_first_occasions,
-                inference,
-                constraints,
-                B,
-                gamma_slowing) {
-    # Return NA if TCT_meta_fit is a missing value itself.
-    if (!is.list(TCT_meta_fit))
+    if (!is.list(TCT_meta_fit)) {
       return(NA)
-    
-    out = tryCatch(
+    }
+    # Estimate common acceleration factor.
+    TCT_meta_common_fit = tryCatch(
       TCT_meta_common(
         TCT_Fit = TCT_meta_fit,
         inference = inference,
@@ -400,153 +383,66 @@ results_tbl$TCT_meta_common_fit = future_pmap(
         return(NA)
       }
     )
-    return(out)
-  },
-  .options = furrr_options(
-    seed = TRUE,
-    stdout = FALSE,
-    conditions = character()
-  )
-)
-print(Sys.time() - a)
-print("meta-TCT-common finished")
-
-# Compute confidence intervals and p-values. First, we need to call the summary
-# method on the object returned by TCT_meta_common(). This method computes the
-# p-value and confidence intervals. Because this can take some time (confidence
-# intervals are computed numerically), we first save the summary-object to the
-# tibble.
-results_tbl$summary_TCT_common = future_pmap(
-  .l = list(x = results_tbl$TCT_meta_common_fit),
-  .f = function(x) {
-    if (is.list(x))
-      return(summary(x))
-    else
+    if (!is.list(TCT_meta_common_fit)) {
       return(NA)
-  }
-)
-
-print("Common acceleration factors estimated")
-
-# Compute the confidence intervals and p-values.
-results_tbl = results_tbl %>%
-  mutate(
-    p_value_TCT_common = purrr::map_dbl(
-      .x = summary_TCT_common,
-      .f = function(x) {
-        if (is.list(x))
-          return(x$p_value)
-        else
-          return(NA)
-      }
-    ),
-    estimate = purrr::map_dbl(
-      .x = TCT_meta_common_fit,
-      .f = function(x) {
-        if (is.list(x))
-          return(coef(x))
-        else
-          return(NA)
-      }
-    ),
-    conf_int_TCT_common_lower = purrr::map_dbl(
-      .x = summary_TCT_common,
-      .f = function(x) {
-        if (is.list(x))
-          return(x$gamma_common_ci[1])
-        else
-          return(NA)
-      }
-    ),
-    conf_int_TCT_common_upper = purrr::map_dbl(
-      .x = summary_TCT_common,
-      .f = function(x) {
-        if (is.list(x))
-          return(x$gamma_common_ci[2])
-        else
-          return(NA)
-      }
-    ),
-    se_TCT_common = purrr::map_dbl(
-      .x = summary_TCT_common,
-      .f = function(x) {
-        if (is.list(x))
-          return(x$gamma_common_se)
-        else
-          return(NA)
-      }
-    ),
-    se_TCT_common_bs = purrr::map_dbl(
-      .x = summary_TCT_common,
-      .f = function(x) {
-        if (!is.list(x))
-          return(NA)
-        else {
-          if (is.null(x$se_bootstrap))
-            return(NA)
-          else
-            return(x$se_bootstrap)
-        }
-        
-      }
-    ),
-    conf_int_TCT_common_lower_bs = purrr::map_dbl(
-      .x = summary_TCT_common,
-      .f = function(x) {
-        if (!is.list(x))
-          return(NA)
-        else {
-          if (is.null(x$se_bootstrap))
-            return(NA)
-          else
-            return(x$ci_bootstrap[1])
-        }
-        
-      }
-    ),
-    conf_int_TCT_common_upper_bs = purrr::map_dbl(
-      .x = summary_TCT_common,
-      .f = function(x) {
-        if (!is.list(x))
-          return(NA)
-        else{
-          if (is.null(x$se_bootstrap))
-            return(NA)
-          else
-            return(x$ci_bootstrap[2])
-        }
-        
+    }
+    
+    # Compute confidence intervals and p-values. First, we need to call the summary
+    # method on the object returned by TCT_meta_common(). This method computes the
+    # p-value and confidence intervals.
+    summary_TCT_common = tryCatch(
+      summary(TCT_meta_common_fit),
+      error = function(cond) {
+        return(NA)
       }
     )
-  )
+    
+    if (!is.list(summary_TCT_common)) {
+      return(NA)
+    }
+    
+    return(
+      data.frame(
+        p_value_TCT_common = summary_TCT_common$p_value,
+        estimate = coef(TCT_meta_common_fit),
+        conf_int_TCT_common_lower = summary_TCT_common$gamma_common_ci[1],
+        conf_int_TCT_common_upper = summary_TCT_common$gamma_common_ci[2],
+        se_TCT_common = summary_TCT_common$gamma_common_se,
+        se_TCT_common_bs = ifelse(
+          is.null(summary_TCT_common$se_bootstrap),
+          NA,
+          summary_TCT_common$se_bootstrap
+        ),
+        conf_int_TCT_common_lower_bs = ifelse(
+          is.null(summary_TCT_common$se_bootstrap),
+          NA,
+          summary_TCT_common$ci_bootstrap[1]
+        ),
+        conf_int_TCT_common_upper_bs = ifelse(
+          is.null(summary_TCT_common$se_bootstrap),
+          NA,
+          summary_TCT_common$ci_bootstrap[2]
+        )
+      )
+    )
+  },
+  .options = furrr_options(seed = TRUE)
+) %>%
+  # Convert the list of lists to a tibble.
+  purrr::list_rbind() %>%
+  # Add the results to the results_tbl.
+  bind_cols(results_tbl, .)
 
-# Two versions of the simulation results are saved. First, a version containing
-# all information, except the original simulated data. The latter cannot be
-# included as the file size would be extremely large. This data set can be used
-# to reproduce all results, starting from the fitted MMRM models. Second, a lean
-# version of the simulation results that will be used for further processing. In
-# the latter data set, only necessary information for processing is included.
-results_lean_tbl = results_tbl %>%
+# Drop variables that are not needed further on.
+results_tbl = results_tbl %>%
   select(
-    -vcov_mmrm,
-    -coef_mmrm,
-    -TCT_meta_fit,
-    -summary_TCT_common,
-    -TCT_meta_common_fit,
     -time_points, 
     -K_vec
   )
 
 saveRDS(
   object = results_tbl,
-  file = here::here(dir_results, "results_simulation_full.rds")
+  file = here::here(dir_results, "results_simulation.rds")
 )
-saveRDS(
-  object = results_lean_tbl,
-  file = here::here(dir_results, "results_simulation_lean.rds")
-)
-write.csv(x = results_lean_tbl,
-          file = here::here(dir_results, "results_simulation_lean.csv"))
 
 print(Sys.time() - a)
-
