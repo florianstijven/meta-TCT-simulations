@@ -3,14 +3,14 @@ all: simulation \
 	application-synthetic
 	
 simulation: results/raw-results/simulations/results_simulation.rds \
-	R/simulations/simulations.Rout
+	R/simulations/processing.Rout \
+	R/simulations/illustrations.Rout
 	
 application: results/reports/application/lighthouse-analysis-with-code.html \
 	results/reports/application/lighthouse-analysis-wo-code.html
 	
 synthetic-application: results/reports/synthetic-application/synthetic-application-with-code.html \
 	results/reports/synthetic-application/synthetic-application-wo-code.html
-
 
 application-synthetic: R/application/data-exploration-synthetic.Rout \
 	results/raw-results/application-synthetic/ipd_surr_indices_tbl.rds \
@@ -21,10 +21,13 @@ application-synthetic: R/application/data-exploration-synthetic.Rout \
 	
 	
 results/raw-results/simulations/results_simulation.rds: R/simulations/simulation-study.R
-	Rscript R/simulations/simulation-study.R 100 > R/simulations/simulation-study.Rout 2> R/simulations/simulation-study.Rout
+	Rscript R/simulations/simulation-study.R 2000 > R/simulations/simulation-study.Rout 2> R/simulations/simulation-study.Rout
 	
 R/simulations/processing.Rout: R/simulations/processing.R results/raw-results/simulations/results_simulation.rds
 	Rscript R/simulations/processing.R > $@ 2> $@
+	
+R/simulations/illustrations.Rout: 
+	Rscript R/simulations/illustrations.R > $@ 2> $@
 	
 	
 results/reports/application/lighthouse-analysis-with-code.html: R/application/real-data-analysis/lighthouse-analysis.Rmd
