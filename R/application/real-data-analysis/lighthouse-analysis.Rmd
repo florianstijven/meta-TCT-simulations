@@ -417,7 +417,7 @@ plot_contrast = tibble(time = time_grid, y = trajectory_points, TRT = "Placebo")
     alpha = 0.5,
     width = 1
   ) +
-  scale_x_continuous(name = "Months Since Randomization", breaks = c(time_points)) +
+  scale_x_continuous(name = "Weeks Since Randomization", breaks = c(time_points)) +
   scale_y_continuous(name = expr(hat(E)(Y[t](z)))) +
   scale_color_brewer(type = "qual",
                      palette = 2,
@@ -444,7 +444,7 @@ plot_ls = tibble(time = time_grid, y = trajectory_points_ls, TRT = "Placebo") %>
     alpha = 0.5,
     width = 1
   ) +
-  scale_x_continuous(name = "Months Since Randomization", breaks = c(time_points)) +
+  scale_x_continuous(name = "Weeks Since Randomization", breaks = c(time_points)) +
   scale_y_continuous(name = expr(hat(E)(Y[t](z)))) +
   scale_color_brewer(type = "qual",
                      palette = 2,
@@ -466,7 +466,416 @@ ggsave(
   units = "cm",
   dpi = res
 )
+
+# Also save the plots separately.
+ggsave(
+  plot = plot_contrast,
+  filename = "estimated-trajectory-contrast.pdf",
+  path = dir_figures,
+  device = "pdf",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+
+ggsave(
+  plot = plot_ls,
+  filename = "estimated-trajectory-ls.pdf",
+  path = dir_figures,
+  device = "pdf",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
 ```
+
+```{r}
+# Additional plots, useful for presentations etc.
+
+# Plot of the estimated time-sepcific means with 95% confidence intervals. No
+# interpolation is added to emphasize the default analysis method of
+# time-specific mean differences.
+plot_means = emmeans_tbl %>% 
+  ggplot(aes(x = time, y = y, color = TRT)) +
+  geom_point(
+    aes(x = Week_int, y = emmean, color = TRT)
+  ) +
+  # Add confidence interval limits.
+  geom_errorbar(
+    aes(
+      x = Week_int,
+      ymin = lower.CL,
+      ymax = upper.CL,
+      y = emmean,
+      color = TRT
+    ),
+    alpha = 0.5,
+    width = 1
+  ) +
+  scale_x_continuous(name = "Weeks Since Randomization", breaks = c(time_points)) +
+  scale_y_continuous(name = expr(hat(E)(Y[t](z)))) +
+  scale_color_brewer(type = "qual",
+                     palette = 2,
+                     name = "Treatment")
+
+ggsave(
+  plot = plot_means,
+  filename = "estimated-means.pdf",
+  path = dir_figures,
+  device = "pdf",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+
+ggsave(
+  plot = plot_means,
+  filename = "estimated-means.png",
+  path = dir_figures,
+  device = "png",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+
+# Plot the reference trajectory without any time mappings.
+plot_reference_trajectory = tibble(time = time_grid, y = trajectory_points, TRT = "Placebo") %>%
+  ggplot(aes(x = time, y = y)) +
+  geom_line(aes(color = TRT), alpha = 0.5) +
+  geom_point(data = emmeans_tbl,
+             aes(x = Week_int, y = emmean, color = TRT),
+             alpha = 0.50) +
+  # Add confidence interval limits.
+  geom_errorbar(
+    data = emmeans_tbl,
+    aes(
+      x = Week_int,
+      ymin = lower.CL,
+      ymax = upper.CL,
+      y = emmean,
+      color = TRT
+    ),
+    alpha = 0.25,
+    width = 1
+  ) +
+  scale_x_continuous(name = "Weeks Since Randomization", breaks = c(time_points)) +
+  scale_y_continuous(name = expr(hat(E)(Y[t](z)))) +
+  scale_color_brewer(type = "qual",
+                     palette = 2,
+                     name = "Treatment")
+
+ggsave(
+  plot = plot_reference_trajectory,
+  filename = "reference-trajectory.pdf",
+  path = dir_figures,
+  device = "pdf",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+
+ggsave(
+  plot = plot_reference_trajectory,
+  filename = "reference-trajectory.png",
+  path = dir_figures,
+  device = "png",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+
+# Plot both the reference trajectory and the estimated trajectory for the active
+# treatment group based on the contrast-based estimator of the common
+# acceleration factor.
+plot_contrast_trajectories = tibble(time = time_grid, y = trajectory_points, TRT = "Placebo") %>%
+  bind_rows(tibble(time = time_grid, y = trt_trajectory_points_contrast, TRT = "Active")) %>%
+  ggplot(aes(x = time, y = y, color = TRT)) +
+  geom_line(alpha = 0.5) +
+  geom_point(
+    data = emmeans_tbl,
+    aes(x = Week_int, y = emmean, color = TRT)
+  ) +
+  # Add confidence interval limits.
+  geom_errorbar(
+    data = emmeans_tbl,
+    aes(
+      x = Week_int,
+      ymin = lower.CL,
+      ymax = upper.CL,
+      y = emmean,
+      color = TRT
+    ),
+    alpha = 0.5,
+    width = 1
+  ) +
+  scale_x_continuous(name = "Weeks Since Randomization", breaks = c(time_points)) +
+  scale_y_continuous(name = expr(hat(E)(Y[t](z)))) +
+  scale_color_brewer(type = "qual",
+                     palette = 2,
+                     name = "Treatment")
+
+ggsave(
+  plot = plot_contrast_trajectories,
+  filename = "contrast-trajectories.pdf",
+  path = dir_figures,
+  device = "pdf",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+
+ggsave(
+  plot = plot_contrast_trajectories,
+  filename = "contrast-trajectories.png",
+  path = dir_figures,
+  device = "png",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+
+# Plot the reference trajectory and the time mappings with arrows from the fixed
+# measurement occasions to the mapped times.
+
+# Compute time mappings.
+time_mappings = tibble(
+  time = c(12, 24, 40, 48),
+  mapped_time = c(12, 24, 40, 48) * coef(TCT_fit),
+  outcome_value = spline(
+    x = time_points,
+    y = ref_means,
+    xout = mapped_time,
+    method = "natural"
+  )$y,
+  lower_ci_mapped_time = c(12, 24, 40, 48) * summary(TCT_fit)$ci_matrix[, 1],
+  upper_ci_mapped_time = c(12, 24, 40, 48) * summary(TCT_fit)$ci_matrix[, 2]
+)
+
+plot_contrast_time_mappings_arrows = tibble(time = time_grid, y = trajectory_points, TRT = "Placebo") %>%
+  ggplot(aes(x = time, y = y)) +
+  geom_line(aes(color = TRT), alpha = 0.5) +
+  geom_point(data = emmeans_tbl,
+             aes(x = Week_int, y = emmean, color = TRT),
+             alpha = 0.50) +
+  # Add confidence interval limits.
+  geom_errorbar(
+    data = emmeans_tbl,
+    aes(
+      x = Week_int,
+      ymin = lower.CL,
+      ymax = upper.CL,
+      y = emmean,
+      color = TRT
+    ),
+    alpha = 0.25,
+    width = 1
+  ) +
+  geom_segment(
+    data = time_mappings,
+    aes(
+      x = time,
+      xend = mapped_time,
+      y = outcome_value,
+      yend = outcome_value
+    ),
+    arrow = arrow(length = unit(0.25, 'cm'))
+  ) +
+  scale_x_continuous(name = "Weeks Since Randomization", breaks = c(time_points)) +
+  scale_y_continuous(name = expr(hat(E)(Y[t](z)))) +
+  scale_color_brewer(type = "qual",
+                     palette = 2,
+                     name = "Treatment")
+
+ggsave(
+  plot = plot_contrast_time_mappings_arrows,
+  filename = "time-mappings-arrows.pdf",
+  path = dir_figures,
+  device = "pdf",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+
+ggsave(
+  plot = plot_contrast_time_mappings_arrows,
+  filename = "time-mappings-arrows.png",
+  path = dir_figures,
+  device = "png",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+
+# Plot the reference trajectory and the time mappings with 95% CIs around the
+# mapped times.
+plot_contrast_time_mappings = tibble(time = time_grid, y = trajectory_points, TRT = "Placebo") %>%
+  ggplot(aes(x = time, y = y)) +
+  geom_line(aes(color = TRT), alpha = 0.5) +
+  geom_point(data = emmeans_tbl,
+             aes(x = Week_int, y = emmean, color = TRT),
+             alpha = 0.50) +
+  # Add confidence interval limits.
+  geom_errorbar(
+    data = emmeans_tbl,
+    aes(
+      x = Week_int,
+      ymin = lower.CL,
+      ymax = upper.CL,
+      y = emmean,
+      color = TRT
+    ),
+    alpha = 0.25,
+    width = 1
+  ) +
+  # Add time mappings with confidence intervals.
+  geom_point(data = time_mappings, aes(x = mapped_time, y = outcome_value)) +
+  geom_errorbarh(
+    data = time_mappings,
+    aes(y = outcome_value, xmin = lower_ci_mapped_time, xmax = upper_ci_mapped_time),
+    height = 0.25
+  ) +
+  scale_x_continuous(name = "Weeks Since Randomization", breaks = c(time_points)) +
+  scale_y_continuous(name = expr(hat(E)(Y[t](z)))) +
+  scale_color_brewer(type = "qual",
+                     palette = 2,
+                     name = "Treatment")
+
+ggsave(
+  plot = plot_contrast_time_mappings,
+  filename = "time-mappings.pdf",
+  path = dir_figures,
+  device = "pdf",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+
+ggsave(
+  plot = plot_contrast_time_mappings,
+  filename = "time-mappings.png",
+  path = dir_figures,
+  device = "png",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+```
+
+```{r}
+# Simulate five patient-level trajectories by pertubring the estimated reference
+# trajectory with a random vertical shift and random acceleration factor.
+set.seed(1)
+simulated_trajectories = tibble(time = time_grid, y = trajectory_points) %>%
+  slice(rep(1:n(), each = 5)) %>%
+  mutate(patient_id = rep(1:5, times = n() / 5)) %>%
+  group_by(patient_id) %>%
+  mutate(
+    vertical_shift = rnorm(1, mean = 0, sd = 0.3),
+    acceleration_factor = rnorm(1, mean = 1, sd = 0.2)
+  ) %>%
+  group_by(time) %>%
+  mutate(
+    y_simulated = spline(
+      x = time_points,
+      y = ref_means,
+      xout = time * acceleration_factor,
+      method = "natural"
+    )$y + vertical_shift
+  ) %>%
+  ungroup() %>%
+  mutate(
+    TRT = "Placebo"
+  )
+# Add active treatment group trajectories by applying the estimated common
+# acceleration factor to the time variable.
+simulated_trajectories = simulated_trajectories %>%
+  bind_rows(
+    tibble(time = time_grid, y = trajectory_points) %>%
+      slice(rep(1:n(), each = 5)) %>%
+      mutate(patient_id = (rep(1:5, times = n(
+      ) / 5) + 5)) %>%
+      group_by(patient_id) %>%
+      mutate(
+        vertical_shift = rnorm(1, mean = 0, sd = 0.2),
+        acceleration_factor = rnorm(1, mean = 1, sd = 0.2)
+      ) %>%
+      group_by(time) %>%
+      mutate(
+        y_simulated = spline(
+          x = time_points,
+          y = ref_means,
+          xout = time * acceleration_factor * coef(TCT_common_fit_contrast),
+          method = "natural"
+        )$y + vertical_shift
+      ) %>%
+      ungroup() %>%
+      mutate(TRT = "Active")
+  )
+
+# Plot the simulated trajectories together with the estimated reference
+# trajectory.
+plot_simulated_trajectories = ggplot() +
+  geom_line(data = simulated_trajectories,
+            aes(x = time, y = y_simulated, group = patient_id, color = TRT),
+            alpha = 0.5) +
+  geom_point(data = emmeans_tbl,
+             aes(x = Week_int, y = emmean, color = TRT),
+             alpha = 0.50) +
+  # Add confidence interval limits.
+  geom_errorbar(
+    data = emmeans_tbl,
+    aes(
+      x = Week_int,
+      ymin = lower.CL,
+      ymax = upper.CL,
+      y = emmean,
+      color = TRT
+    ),
+    alpha = 0.25,
+    width = 1
+  ) +
+  scale_x_continuous(name = "Weeks Since Randomization", breaks = c(time_points)) +
+  scale_y_continuous(name = expr(hat(E)(Y[t](z)))) +
+  scale_color_brewer(type = "qual",
+                     palette = 2,
+                     name = "Treatment")
+
+ggsave(
+  plot = plot_simulated_trajectories,
+  filename = "simulated-trajectories.pdf",
+  path = dir_figures,
+  device = "pdf",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+
+ggsave(
+  plot = plot_simulated_trajectories,
+  filename = "simulated-trajectories.png",
+  path = dir_figures,
+  device = "png",
+  width = single_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+```
+
+
 
 # Conclusion
 
