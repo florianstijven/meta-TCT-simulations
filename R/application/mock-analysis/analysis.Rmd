@@ -25,7 +25,7 @@ library(emmeans)
 
 # Introduction
 
-In this report, we analyze the mock data that resemble the data in the case
+In this report, we analyze the synthetic data that resemble the data in the case
 study. These are data from a randomized trial in Alzheimer's disease where the
 ADAS-Cog score has been evaluated at pre-determined measurement occasions.
 Additionally, baseline covariates are available; these will be adjusted for to
@@ -38,7 +38,7 @@ the meta time-component test (meta TCT) methodology.
 
 # Data Exploration
 
-The Lighthouse data are read via the SAS data file. These data are in a
+The synthetic data are read via the SAS data file. These data are in a
 partially long format because every post-randomization measurement has its own
 row, but the baseline measurement is represented by a column. For applying meta
 TCT, we need to fit a mixed model where the baseline measurement is also treated
@@ -46,7 +46,7 @@ as a response instead of a baseline covariate. Hence, we reformat the data
 accordingly.
 
 ```{r}
-# Read the sas-data set and convert the variables to a format that closely
+# Read the SAS-data set and convert the variables to a format that closely
 # resembles the real data in the case study.
 data_lighthouse = haven::read_sas(here::here("data", "synthetic", "effect.sas7bdat")) %>%
   rename(WEEK = time, SUBJID = id, TRT = trt) %>%
@@ -56,11 +56,11 @@ data_lighthouse = haven::read_sas(here::here("data", "synthetic", "effect.sas7bd
     SITE = factor(SITE)
   )
 # The data are not in the long format because there is no separate row for the
-# ADASCog score at baseline. We recode the data into the long format.
+# ADAS-Cog score at baseline. We transform the data into the long format.
 data_lighthouse_long = data_lighthouse %>%
-  # The sas-data set contains the change scores as outcome variable, instead of
-  # the ADASCog score itself. Add baseline value to the change score to get the
-  # original ADASCog score.
+  # The SAS-data set contains the change scores as outcome variable, instead of
+  # the ADAS-Cog score itself. Add baseline value to the change score to get the
+  # original ADAS-Cog score.
   mutate(CHG = CHG + BASVAL) %>%
   pivot_wider(names_from = "WEEK",
               values_from = "CHG",
@@ -140,10 +140,10 @@ equal between both treatment groups. This holds by randomization. The mixed mode
 is fitted with `mmrm()` from the `mmrm` R package.
 
 ```{r}
-# Fit model for the full ADASCog vector, including the baseline response. For
-# the TCT methods, it is most ideal to assume that the mean response at baseline
-# is equal in both treatment groups. This can be "forced" by setting the
-# treatment variable to "placebo" for all measurements at baseline.
+# Fit model for the full ADAS-Cog vector, including the baseline response. For
+# estimating the acceleration factors, we require that the mean response at
+# baseline is equal in both treatment groups. This can be "forced" by setting
+# the treatment variable to "placebo" for all measurements at baseline.
 data_lighthouse_long = data_lighthouse_long %>%
   mutate(
     Week = factor(Week),
@@ -204,11 +204,12 @@ confint(emmeans::contrast(ls_means_prop, "pairwise"))
 ```
 
 
-# Meta Time-Component Test
+# Estimation of Acceleration Factors
 
 In this section, we will use the EMMs from the previous section to estimate the
-treatment effect on the time scale. We use the meta TCT methodology as implemented
-in the `TCT` R package for this. 
+treatment effect on the time scale (i.e., the time-specific acceleration factors
+and the common acceleration factor). We use the estimators implemented in the
+`TCT` R package for this.
 
 In the first step, we need to extract the EMMs at all
 treatment-measurement occasion combinations. We also need the corresponding
@@ -216,7 +217,7 @@ covariance matrix. These quantities can be obtained from the `emmGrid` object th
 was returned by `emmeans()`.
 
 ```{r}
-# We first need to extract the LS means for all treatment time combinations and
+# We first need to extract the EMMs for all treatment time combinations and
 # the corresponding covariance matrix.
 ctrl_indices = which(summary(ls_means_prop)$TRT == "Placebo")
 exp_indices = which(summary(ls_means_prop)$TRT == "Active")
@@ -227,14 +228,14 @@ exp_estimates = summary(ls_means_prop)$emmean[exp_indices]
 vcov_emmeans = vcov(ls_means_prop)[c(ctrl_indices, exp_indices), c(ctrl_indices, exp_indices)]
 ```
 
-In the second step, we use `TCT_meta()` to estimate the measurement
-occasion-specific acceleration factors; the estimated acceleration factors are
-shown below. Note that the z-values for the estimated acceleration factors are
-equal to the corresponding t-values in the EMM contrasts. This is no coincidence
-and always holds for the `"score"` tests for the time-specific acceleration
-factors. The p-values below and the p-values for the EMM contrasts differ
-slightly because `TCT_meta()` uses the standard normal distribution instead of
-the t-distribution to compute the p-value.
+In the second step, we use `TCT_meta()` to estimate the time-specific
+acceleration factors; the estimated acceleration factors are shown below. Note
+that the z-values for the estimated acceleration factors are equal to the
+corresponding t-values in the EMM contrasts. This is no coincidence and always
+holds for the `"score"` tests for the time-specific acceleration factors. The
+p-values below and the p-values for the EMM contrasts differ slightly because
+`TCT_meta()` uses the standard normal distribution instead of the t-distribution
+to compute the p-value.
 
 ```{r}
 TCT_fit = TCT_meta(
@@ -248,16 +249,15 @@ TCT_fit = TCT_meta(
 )
 summary(TCT_fit)
 ```
-
-The estimated measurement occasion-specific acceleration factors do not
+The estimated measurement occasion-specific acceleration factors do not seem to
 contradict the assumption of proportional slowing, i.e., the assumption that the
-acceleration factor is constant over time. Indeed, the estimates are all within
-one standard error of 0.50. Therefore, we can proceed to estimating the common
-acceleration factor.
+acceleration factor is constant over time.Indeed, the estimates are all within
+one standard error of 0.50. Therefore, we may proceed to estimating the common
+acceleration factor. (Later on, we formally test this assumption.)
 
 The object returned by `TCT_meta()` can be used as argument to
 `TCT_meta_common()` to estimate the common acceleration factor. We use two
-estimation methods: (i) the score estimator with adaptively selected weights and
+estimation methods: (i) the contrast-based estimator with adaptively selected weights and
 (ii) the least-squares estimator.
 
 ```{r, cache=TRUE}
@@ -276,13 +276,20 @@ summary(TCT_common_fit_ls)
 ```
 
 These two estimators lead to very similar results. The estimated common
-acceleration factor is about 0.77 or 0.80. The estimated treatment effect
-corresponds to slowing disease progression with about 20\% -- a very relevant
-effect. The p-values and confidence intervals vary a bit more between these
-estimators and also depend on whether the parametric bootstrap is used. Since
-the sample size is relatively small, the parametric bootstrap should be
-preferred. Indeed, simulations revealed that inference based on the parametric
-bootstrap is closer to nominal in small sample sizes.
+acceleration factor is about 0.50. The estimated treatment effect corresponds to
+slowing disease progression with 50\% -- a very relevant effect. The p-values
+and confidence intervals vary a bit more between these estimators and also
+depend on whether the parametric bootstrap is used. Since the sample size is
+relatively small, the parametric bootstrap should be preferred. Indeed,
+simulations revealed that inference based on the parametric bootstrap is closer
+to nominal in small sample sizes.
+
+The p-value of the goodness-of-fit test (based on the minimized least-squares
+criterion) for the proportional slowing assumption is 
+`r round(summary(TCT_common_fit_ls)$proportional_slowing_test[["p_value"]], 3)`.
+This indicates no evidence against the assumption of proportional slowing;
+although, this assumption as expected to hold only approximately at best. A
+larger sample size would likely lead to significant p-values.
 
 # Conclusion
 
@@ -296,7 +303,7 @@ respectively. The relevance of these treatment effects is unclear. The estimated
 common acceleration factor is
 `r round(coef(TCT_common_fit_ls), 2)`, p = `r round(summary(TCT_common_fit_ls)$p_bootstrap, 3)`
 (using the least-squares estimator and parametric bootstrap). The meta TCT
-approach thus reveals a clinically modest effect.The corresponding 95 \% CI is 
+approach thus reveals a clinically modest effect. The corresponding 95 \% CI is 
 `r paste0("(", round(summary(TCT_common_fit_ls)$ci_bootstrap[1], 2), ", ", round(summary(TCT_common_fit_ls)$ci_bootstrap[2], 2), ")")`, 
 which reveals that clinically large treatment effects -- e.g., slowing of more
 than 50 \% -- can be excluded. In addition, the p-value is modestly smaller as

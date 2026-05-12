@@ -15,6 +15,16 @@ res = 600
 
 # Check whether ggplot2 is installed. If yes, system.file() returns the
 # location; if no, system.file() returns an empty string.
-if (system.file(package = "ggplot2") != ""){
-  ggplot2::theme_set(ggplot2::theme_bw())
+if (system.file(package = "ggplot2") != "") {
+  ggplot2::theme_set(
+    ggplot2::theme_bw() +
+      ggplot2::theme(
+        legend.position = "bottom",
+        legend.margin = ggplot2::margin(l = -1),
+        legend.direction = "horizontal",
+        legend.box = "vertical",
+        legend.spacing.y = ggplot2::unit(0.1, "cm"),
+        legend.box.spacing = ggplot2::unit(0.1, "cm")
+      )
+  )
 }

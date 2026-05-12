@@ -6,18 +6,6 @@ library(tidyverse)
 # Set directories where the plots and tables are saved.
 dir_figures = here::here("results", "figures", "simulations")
 
-theme_set(
-  theme_get() +
-    theme(
-      legend.position = "bottom",
-      legend.margin = margin(l = -1),
-      legend.direction = "horizontal",
-      legend.box = "vertical",
-      legend.spacing.y = unit(0.1, "cm"),
-      legend.box.spacing = unit(0.1, "cm")
-    )
-)
-
 # Data Generating Mechanism ----
 
 ref_means_list = list(

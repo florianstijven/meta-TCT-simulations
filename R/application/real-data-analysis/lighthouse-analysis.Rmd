@@ -21,6 +21,9 @@ library(mmrm)
 library(TCT)
 library(gtsummary)
 library(emmeans)
+
+# Set directories where the plots and tables are saved.
+dir_figures = here::here("results", "figures", "application")
 ```
 
 # Introduction
@@ -49,9 +52,9 @@ accordingly.
 # Read the sas-data set.
 data_lighthouse = haven::read_sas(here::here("data", "original", "tct_adascog.sas7bdat"))
 # The original data are not in the long format because there is no separate row
-# for the ADASCog at baseline. We recode the data into the long format.
+# for the ADASCog at baseline. We transform the data into the long format.
 data_lighthouse_long = data_lighthouse %>%
-  # Add baseline value to the change score to get the original ADASCog score.
+  # Add baseline value to the change score to get the original ADAS-Cog score.
   mutate(CHG = CHG + BASVAL) %>%
   pivot_wider(names_from = "WEEK",
               values_from = "CHG",
@@ -93,9 +96,9 @@ occasion. The results are shown in Table \@ref(tab:missingness) and clearly show
 that there are more missing values in the active treatment group. The magnitude
 of missingness is also substantial; 35% of the values are missing at 48 weeks in
 the active treatment group. In what follows, we assume missing at random (MAR).
-A MMRM leads to valid inferences under MAR regardless of the proportion of
-missing values; however, the results could be sensitive to small violations of
-MAR because there are many missing values.
+A MMRM leads to valid inferences under MAR (and a correctly specified model)
+regardless of the proportion of missing values; however, the results could be
+sensitive to small violations of MAR because there are many missing values.
 
 ```{r missingness}
 data_lighthouse_long %>%
@@ -175,10 +178,10 @@ equal between both treatment groups. This holds by randomization. The mixed mode
 is fitted with `mmrm()` from the `mmrm` R package.
 
 ```{r}
-# Fit model for the full ADASCog vector, including the baseline response. For
-# the TCT methods, it is most ideal to assume that the mean response at baseline
-# is equal in both treatment groups. This can be "forced" by setting the
-# treatment variable to "placebo" for all measurements at baseline.
+# Fit model for the full ADAS-Cog vector, including the baseline response. For
+# estimating the acceleration factor, we need to assumed that the mean response
+# at baseline is equal in both treatment groups. This can be "forced" by setting
+# the treatment variable to "placebo" for all measurements at baseline.
 data_lighthouse_long = data_lighthouse_long %>%
   mutate(
     Week = factor(Week),
@@ -206,10 +209,10 @@ row_number_trt = which(rownames(anova_mmrm) ==  "Week:TRT")
 p_trt_effect = anova_mmrm[["Pr(>=F)"]][row_number_trt]
 ```
 
-The p-value for the F-test is `r round(p_trt_effect, 3)`. There is thus is a 
-significant treatment effect, but it is unclear how relevant this effect really 
-is. A first step towards interpreting the magnitude of the treatment effect is to look
-at the estimated mean differences in ADAS-Cog scores.
+The p-value for the F-test is `r round(p_trt_effect, 3)`. There is thus is a
+significant treatment effect, but it is unclear how relevant this effect really
+is. A first step towards interpreting the magnitude of the treatment effect is
+to look at the estimated mean differences in ADAS-Cog scores.
 
 
 Because we have included baseline covariates, we have to carefully define the
@@ -239,11 +242,12 @@ confint(emmeans::contrast(ls_means_prop, "pairwise"))
 ```
 
 
-# Meta Time-Component Test
+# Estimation of Acceleration Factors
 
 In this section, we will use the EMMs from the previous section to estimate the
-treatment effect on the time scale. We use the meta TCT methodology as implemented
-in the `TCT` R package for this. 
+treatment effect on the time scale (i.e., the time-specific acceleration factors
+and the common acceleration factor). We use the estimators implemented in the
+`TCT` R package for this.
 
 In the first step, we need to extract the EMMs at all
 treatment-measurement occasion combinations. We also need the corresponding
@@ -251,7 +255,7 @@ covariance matrix. These quantities can be obtained from the `emmGrid` object th
 was returned by `emmeans()`.
 
 ```{r}
-# We first need to extract the LS means for all treatment time combinations and
+# We first need to extract the EMMs for all treatment time combinations and
 # the corresponding covariance matrix.
 ctrl_indices = which(summary(ls_means_prop)$TRT == "Placebo")
 exp_indices = which(summary(ls_means_prop)$TRT == "Active")
@@ -262,11 +266,10 @@ exp_estimates = summary(ls_means_prop)$emmean[exp_indices]
 vcov_emmeans = vcov(ls_means_prop)[c(ctrl_indices, exp_indices), c(ctrl_indices, exp_indices)]
 ```
 
-In the second step, we use `TCT_meta()` to estimate the measurement
-occasion-specific acceleration factors; the estimated acceleration factors are
+In the second step, we use `TCT_meta()` to estimate the time-specific acceleration factors; the estimated acceleration factors are
 shown below. Note that the z-values for the estimated acceleration factors are
 equal to the corresponding t-values in the EMM contrasts. This is no coincidence
-and always holds for the `"score"` tests for the time-specific acceleration
+and always holds for the `"contrast"` tests for the time-specific acceleration
 factors. The p-values below and the p-values for the EMM contrasts differ
 slightly because `TCT_meta()` uses the standard normal distribution instead of
 the t-distribution to compute the p-value.
@@ -278,35 +281,30 @@ TCT_fit = TCT_meta(
   exp_estimates = exp_estimates,
   vcov = vcov_emmeans,
   interpolation = "spline",
-  inference = "score",
+  inference = "contrast",
   B = 0
 )
 summary(TCT_fit)
 ```
 
-The estimated measurement occasion-specific acceleration factors do not
+The estimated measurement occasion-specific acceleration factors do not seem to
 contradict the assumption of proportional slowing, i.e., the assumption that the
-acceleration factor is constant over time. Indeed, the estimates are all within
-one standard error of 0.50. Therefore, we can proceed to estimating the common
-acceleration factor.
+acceleration factor is constant over time.Indeed, the estimates are all within
+one standard error of 0.50. Therefore, we may proceed to estimating the common
+acceleration factor. (Later on, we formally test this assumption.)
 
 The object returned by `TCT_meta()` can be used as argument to
 `TCT_meta_common()` to estimate the common acceleration factor. We use two
-estimation methods: (i) the score estimator with adaptively selected weights and
+estimation methods: (i) the contrast-based estimator with adaptively selected weights and
 (ii) the least-squares estimator.
 
 ```{r, cache=TRUE}
 # Estimate common accelerations factors.
 set.seed(1)
-TCT_common_fit_score = TCT_meta_common(TCT_fit,
-                                       B = 1e3,
-                                       inference = "score",
-                                       type = "custom")
-summary(TCT_common_fit_score)
+TCT_common_fit_contrast = TCT_meta_common(TCT_fit, B = 2e3, inference = "contrast")
+summary(TCT_common_fit_contrast)
 set.seed(1)
-TCT_common_fit_ls = TCT_meta_common(TCT_fit,
-                                    B = 1e3,
-                                    inference = "least-squares")
+TCT_common_fit_ls = TCT_meta_common(TCT_fit, B = 2e3, inference = "least-squares")
 summary(TCT_common_fit_ls)
 ```
 
@@ -318,6 +316,157 @@ depend on whether the parametric bootstrap is used. Since the sample size is
 relatively small, the parametric bootstrap should be preferred. Indeed,
 simulations revealed that inference based on the parametric bootstrap is closer
 to nominal in small sample sizes.
+
+The p-value of the goodness-of-fit test (based on the minimized least-squares
+criterion) for the proportional slowing assumption is 
+`r round(summary(TCT_common_fit_ls)$proportional_slowing_test[["p_value"]], 3)`.
+This indicates no evidence against the assumption of proportional slowing;
+although, this assumption as expected to hold only approximately at best. A
+larger sample size would likely lead to significant p-values.
+
+```{r}
+# Plot the estimated marginal means together with the 95% confidence intervals and
+# add the natural cubic spline interpolation to get the estimated reference
+# trajectory.
+
+# Calling summary on the emmGrid object returns a data frame with the
+# estimated marginal means, the corresponding standard errors and confidence limits.
+emmeans_tbl = summary(ls_means_prop)
+# We need to convert the (character) Week variable to an integer.
+emmeans_tbl = emmeans_tbl %>%
+  mutate(Week_int = as.integer(stringr::str_sub(Week, start = 6)))
+
+# Extract the estimated marginal means for the control and active-treatment
+# groups.
+ref_means = emmeans_tbl %>%
+  filter(TRT == "Placebo") %>%
+  arrange(Week_int) %>%
+  pull(emmean)
+trt_means = emmeans_tbl %>%
+  filter(TRT == "Active") %>%
+  arrange(Week_int) %>%
+  pull(emmean)
+# Extract the times corresponding to the fixed measurement occasions and sort in
+# increasing order.
+time_points = unique(emmeans_tbl$Week_int) %>% sort()
+# Define the grid on which we evaluate the spline interpolation.
+time_grid = seq(from = 0,
+                to = max(time_points),
+                length.out = 5e3)
+# Interpolate the reference trajectory using a natural cubic spline. This
+# corresponds to the estimated reference trajectory for the contrast-based
+# estimator of the common acceleration factor (since the control group
+# parameters are no re-estimated here).
+trajectory_points = spline(
+  x = time_points,
+  y = ref_means,
+  xout = time_grid,
+  method = "natural"
+)$y
+# Extract the re-estimates of the control group parameters.
+alpha_est = TCT_common_fit_ls$alpha_est
+# Interpolate between the re-estimated control group parameters. This is the
+# estimated reference trajectory for the least-squares estimator of the common
+# acceleration factor.
+trajectory_points_ls = spline(
+  x = time_points,
+  y = alpha_est,
+  xout = time_grid,
+  method = "natural"
+)$y
+
+# Adaptive weights-based estimate of the common acceleration factor.
+gamma_est_contrast = coef(TCT_common_fit_contrast)
+# Least-squares estimate of the common acceleration factor.
+gamma_est_ls = coef(TCT_common_fit_ls)
+# Estimated trajectory for the active treatment group based on the adaptive
+# weights-based estimate of the common acceleration factor.
+trt_trajectory_points_contrast = spline(
+  x = time_points,
+  y = ref_means,
+  xout = time_grid * gamma_est_contrast,
+  method = "natural"
+)$y
+# Estimated trajectory for the active treatment group based on the least-squares
+# estimate of the common acceleration factor.
+trt_trajectory_points_ls = spline(
+  x = time_points,
+  y = alpha_est,
+  xout = time_grid * gamma_est_ls,
+  method = "natural"
+)$y
+
+plot_contrast = tibble(time = time_grid, y = trajectory_points, TRT = "Placebo") %>%
+  bind_rows(tibble(time = time_grid, y = trt_trajectory_points_contrast, TRT = "Active")) %>%
+  ggplot(aes(x = time, y = y, color = TRT)) +
+  geom_line(alpha = 0.5) +
+  geom_point(
+    data = emmeans_tbl,
+    aes(x = Week_int, y = emmean, color = TRT)
+  ) +
+  # Add confidence interval limits.
+  geom_errorbar(
+    data = emmeans_tbl,
+    aes(
+      x = Week_int,
+      ymin = lower.CL,
+      ymax = upper.CL,
+      y = emmean,
+      color = TRT
+    ),
+    alpha = 0.5,
+    width = 1
+  ) +
+  scale_x_continuous(name = "Months Since Randomization", breaks = c(time_points)) +
+  scale_y_continuous(name = expr(hat(E)(Y[t](z)))) +
+  scale_color_brewer(type = "qual",
+                     palette = 2,
+                     name = "Treatment")
+
+plot_ls = tibble(time = time_grid, y = trajectory_points_ls, TRT = "Placebo") %>%
+  bind_rows(tibble(time = time_grid, y = trt_trajectory_points_ls, TRT = "Active")) %>%
+  ggplot(aes(x = time, y = y, color = TRT)) +
+  geom_line(alpha = 0.5) +
+  geom_point(
+    data = emmeans_tbl,
+    aes(x = Week_int, y = emmean, color = TRT)
+  ) +
+  # Add confidence interval limits.
+  geom_errorbar(
+    data = emmeans_tbl,
+    aes(
+      x = Week_int,
+      ymin = lower.CL,
+      ymax = upper.CL,
+      y = emmean,
+      color = TRT
+    ),
+    alpha = 0.5,
+    width = 1
+  ) +
+  scale_x_continuous(name = "Months Since Randomization", breaks = c(time_points)) +
+  scale_y_continuous(name = expr(hat(E)(Y[t](z)))) +
+  scale_color_brewer(type = "qual",
+                     palette = 2,
+                     name = "Treatment")
+
+# Paste the plots together. There should be one common legend.
+library(patchwork)
+plot_contrast + plot_ls +
+  plot_layout(ncol = 2, guides = "collect") +
+  plot_annotation(tag_levels = "A")
+  
+
+ggsave(
+  filename = "estimated-trajectory.pdf",
+  path = dir_figures,
+  device = "pdf",
+  width = double_width,
+  height = single_height,
+  units = "cm",
+  dpi = res
+)
+```
 
 # Conclusion
 
@@ -334,5 +483,4 @@ common acceleration factor is
 approach thus reveals a clinically very relevant effect, something the MMRM did
 not reveal. In addition, the p-value is considerably smaller as compared to
 F-test in the MMRM.
-
 

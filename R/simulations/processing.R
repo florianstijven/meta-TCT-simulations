@@ -10,21 +10,6 @@ dir_results = here::here("results", "raw-results", "simulations")
 dir_figures = here::here("results", "figures", "simulations")
 dir_tables = here::here("results", "tables", "simulations")
 
-# Set the theme for all plots.
-theme_set(
-  theme_get() +
-    theme(
-      legend.position = "bottom",
-      legend.margin = margin(l = -1),
-      legend.direction = "horizontal",
-      legend.box = "vertical",
-      legend.spacing.y = unit(0.1, "cm"),
-      legend.box.spacing = unit(0.1, "cm")
-    )
-)
-
-# Set directories to which figures and tables are saved.
-
 
 # Read data set with results of the simulation study.
 results_tbl = readRDS(file = here::here(dir_results, "results_simulation.rds"))
@@ -170,7 +155,6 @@ results_tbl_estimation %>%
     levels = c("24 Months", "36(-30) Months", "36 Months")),
     scales = "free"
   ) +
-  guides(color = guide_legend(label.position = "right")) +
   scale_color_brewer(type = "qual", palette = 2, name = "Estimator")  +
   scale_y_continuous(n.breaks = 3) +
   scale_x_continuous(breaks = sample_sizes, trans = "log10")
@@ -183,10 +167,12 @@ ggsave(filename = "bias.pdf",
        dpi = res)
 
 results_tbl_estimation %>%
-  filter(constraints == FALSE,
-         inference %in% c("GLS", "Adaptive Weights"),
-         drop_first_occasions == 0, 
-         interpolation == "Natural Cubic Spline") %>%
+  filter(
+    constraints == FALSE,
+    inference %in% c("GLS", "Adaptive Weights"),
+    drop_first_occasions == 0,
+    interpolation == "Natural Cubic Spline"
+  ) %>%
   ggplot(aes(
     x = n,
     y = mse,
@@ -195,13 +181,18 @@ results_tbl_estimation %>%
   )) +
   geom_point() +
   geom_line() +
-  scale_y_continuous(trans = "log10", name = "MSE", limits = c(0.0005, 5)) +
-  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)") +
+  scale_y_continuous(trans = "log10",
+                     name = "MSE",
+                     limits = c(0.0005, 5)) +
+  scale_x_continuous(breaks = sample_sizes,
+                     trans = "log10",
+                     name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate") +
-  facet_grid(gamma_slowing ~ factor(
-    `Follow Up`,
-    levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
+  facet_grid(gamma_slowing ~ factor(`Follow Up`, levels = c("24 Months", "36(-30) Months", "36 Months"))) +
+  scale_color_brewer(type = "qual",
+                     palette = 2,
+                     name = "Estimator") +
+  guides(linetype = guide_legend(order = 1), color = guide_legend(order = 2))
 ggsave(filename = "mse.pdf",
        path = dir_figures,
        device = "pdf",
@@ -234,13 +225,14 @@ results_tbl_estimation %>%
   ) +
   scale_y_continuous(trans = "log10", 
                      name = "Empirical SD and Median Estimated SE",
-                     limits = c(0.025, 2)) +
+                     limits = c(0.025, 2.3)) +
   scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate") +
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation")
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator") +
+  guides(linetype = guide_legend(order = 1), color = guide_legend(order = 2))
 ggsave(filename = "se.pdf",
        path = dir_figures,
        device = "pdf",
@@ -377,7 +369,7 @@ results_tbl_estimation %>%
     linetype = progression
   )) +
   geom_point() +
-  geom_line() +
+  geom_line(show.legend = TRUE) +
   geom_point(
     data = results_tbl_estimation %>%
       filter(
@@ -426,7 +418,7 @@ results_tbl_inference %>%
     linetype = progression
   )) +
   geom_point() +
-  geom_line() +
+  geom_line(show.legend = TRUE) +
   geom_hline(
     # Add horizontal lines to indicate the 0.95 nominal coverage.
     data = tidyr::expand_grid(
@@ -473,7 +465,7 @@ results_tbl_inference %>%
     )
   ) +
   geom_point() +
-  geom_line() +
+  geom_line(show.legend = TRUE) +
   geom_point(
     data = results_tbl_inference %>%
       filter(
@@ -604,8 +596,9 @@ results_tbl_estimation %>%
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation") +
-  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator") +
+  scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")+
+  guides(linetype = guide_legend(order = 1), color = guide_legend(order = 2))
 ggsave(filename = "mse-linear.pdf",
        path = dir_figures,
        device = "pdf",
@@ -626,7 +619,7 @@ results_tbl_estimation %>%
     linetype = progression
   )) +
   geom_point() +
-  geom_line() +
+  geom_line(show.legend = TRUE) +
   geom_point(
     data = results_tbl_estimation %>%
       filter(constraints == FALSE,
@@ -638,13 +631,13 @@ results_tbl_estimation %>%
   ) +
   scale_y_continuous(trans = "log10", 
                      name = "Empirical SD and Median Estimated SE",
-                     limits = c(0.025, 2)) +
+                     limits = c(0.025, 2.3)) +
   scale_x_continuous(trans = "log10", name = "Sample Size (n)") +
   scale_linetype(name = "Progression Rate") +
   facet_grid(gamma_slowing ~ factor(
     `Follow Up`,
     levels = c("24 Months", "36(-30) Months", "36 Months"))) +
-  scale_color_brewer(type = "qual", palette = 2, name = "Interpolation") +
+  scale_color_brewer(type = "qual", palette = 2, name = "Estimator") +
   scale_x_continuous(breaks = sample_sizes, trans = "log10", name = "Sample Size (n)")
 ggsave(filename = "se-linear.pdf",
        path = dir_figures,
